@@ -12,14 +12,26 @@ async function request(url,options={}){
   if(!response.ok)throw new Error(data.error||'Request failed.');
   return data;
 }
+function setLoginLoading(loading){
+  const button=$('#loginButton');
+  button.disabled=loading;
+  button.classList.toggle('is-loading',loading);
+  const text=button.querySelector('.login-button-text');
+  if(text)text.textContent=loading?'Opening kitchen…':'Open kitchen board';
+}
 async function login(){
   pin=$('#pin').value.trim();
-  if(!pin)return show($('#loginMessage'),'Enter the admin PIN.');
+  hide($('#loginMessage'));
+  if(!pin)return show($('#loginMessage'),'Enter the kitchen PIN.');
+  setLoginLoading(true);
   try{
     const data=await request('/api/admin/orders');
     sessionStorage.setItem('glamfestAdminPin',pin);orders=data.orders;
     hide($('#login'));$('#dashboard').classList.remove('hidden');render();loadQr();startRefresh();
-  }catch(error){show($('#loginMessage'),error.message);}
+  }catch(error){
+    show($('#loginMessage'),error.message);
+    $('#pin').focus();$('#pin').select();
+  }finally{setLoginLoading(false);}
 }
 function render(){
   orders.sort((a,b)=>a.slot.localeCompare(b.slot)||a.orderNumber-b.orderNumber);
@@ -66,7 +78,15 @@ let timer;
 function startRefresh(){clearInterval(timer);timer=setInterval(()=>refresh(true),15000);}
 $('#loginButton').addEventListener('click',login);
 $('#pin').addEventListener('keydown',event=>{if(event.key==='Enter')login();});
+$('#togglePin').addEventListener('click',()=>{
+  const input=$('#pin');const showing=input.type==='text';
+  input.type=showing?'password':'text';
+  $('#togglePin').textContent=showing?'Show':'Hide';
+  $('#togglePin').setAttribute('aria-label',showing?'Show PIN':'Hide PIN');
+  $('#togglePin').setAttribute('aria-pressed',String(!showing));
+  input.focus();
+});
 $('#refresh').addEventListener('click',()=>refresh(false));
 $('#search').addEventListener('input',render);
 $('#logout').addEventListener('click',()=>{sessionStorage.removeItem('glamfestAdminPin');location.reload();});
-if(pin){$('#pin').value=pin;login();}
+if(pin){$('#pin').value=pin;login();}else{$('#pin').focus();}
