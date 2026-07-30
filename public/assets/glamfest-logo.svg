@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 260" role="img" aria-labelledby="title desc">
+  <title id="title">Glamfest Family Fun Day</title>
+  <desc id="desc">Retro Glamfest logo with palm tree, hearts and colourful festival lettering.</desc>
+  <defs>
+    <linearGradient id="g" x1="0" x2="1">
+      <stop offset="0" stop-color="#ef5a5a"/>
+      <stop offset=".5" stop-color="#f08ab7"/>
+      <stop offset="1" stop-color="#ef8c3f"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="7" stdDeviation="0" flood-color="#174f55" flood-opacity="1"/>
+    </filter>
+  </defs>
+  <g transform="translate(34 16)">
+    <g transform="translate(440 0) rotate(7)">
+      <path d="M73 57c-4-24 10-41 31-51-5 18-2 30 8 45 12-21 29-31 50-29-15 10-23 23-25 41 18-12 36-13 54-4-23 6-36 17-44 35" fill="none" stroke="#eb5f91" stroke-width="12" stroke-linecap="round"/>
+      <path d="M121 56c-4 49-3 90 13 133" fill="none" stroke="#1c7775" stroke-width="16" stroke-linecap="round"/>
+      <path d="M87 193c28-9 59-9 91 0" fill="none" stroke="#1c7775" stroke-width="13" stroke-linecap="round"/>
+    </g>
+    <g fill="#ef5a5a">
+      <path d="M18 58c-15-13-36 9-18 27 18 18 36 28 36 28s18-10 36-28c18-18-3-40-18-27-9 8-18 18-18 18S27 66 18 58z"/>
+      <path d="M520 165c-10-9-24 6-12 18 12 12 24 18 24 18s12-6 24-18c12-12-2-27-12-18-6 5-12 12-12 12s-6-7-12-12z"/>
+    </g>
+    <text x="74" y="128" font-family="Arial Black, Impact, sans-serif" font-size="104" letter-spacing="-5" fill="url(#g)" stroke="#173f46" stroke-width="5" paint-order="stroke" filter="url(#shadow)">GLAMFEST</text>
+    <rect x="126" y="151" width="320" height="58" rx="29" fill="#1c7775" stroke="#173f46" stroke-width="5"/>
+    <text x="286" y="190" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="900" letter-spacing="4" fill="#fff8df">FAMILY FUN DAY</text>
+    <g fill="#ef5a5a">
+      <circle cx="95" cy="181" r="9"/><circle cx="476" cy="181" r="9"/>
+    </g>
+    <g stroke="#ef8c3f" stroke-width="8" stroke-linecap="round">
+      <path d="M64 155l-14-15M58 174H37M501 132l17-15M515 153h21"/>
+    </g>
+  </g>
+</svg>
