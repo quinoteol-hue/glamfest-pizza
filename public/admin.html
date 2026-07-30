@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f6c945"><title>Glamfest Pizza Admin</title><link rel="stylesheet" href="/styles.css"></head>
+<body>
+  <main class="admin-shell">
+    <section id="login" class="login-box">
+      <span class="eyebrow">GLAMFEST KITCHEN</span>
+      <h1>Pizza admin</h1>
+      <p>Enter the kitchen PIN to view and manage orders.</p>
+      <label for="pin">Admin PIN</label>
+      <input id="pin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="Enter PIN">
+      <button id="loginButton" class="primary" type="button">Open kitchen board</button>
+      <div id="loginMessage" class="message hidden"></div>
+    </section>
+
+    <section id="dashboard" class="hidden">
+      <header class="admin-header">
+        <div><span class="eyebrow">🍕 GLAMFEST KITCHEN</span><h1>Pizza order board</h1></div>
+        <div class="toolbar"><input id="search" placeholder="Search orders"><button id="refresh" type="button">Refresh</button><a class="link-button" href="/">Customer page</a><button id="logout" type="button">Lock</button></div>
+      </header>
+      <div id="summary" class="admin-summary"></div>
+      <div id="adminMessage" class="message hidden"></div>
+      <div class="admin-grid">
+        <section><div id="orders" class="orders"></div></section>
+        <aside class="qr-panel"><h2>Customer QR</h2><img id="qrImage" alt="QR code for the pizza ordering page"><p id="qrUrl" class="muted"></p><p class="muted">Display this code at the food tent so guests can order on their phones.</p></aside>
+      </div>
+    </section>
+  </main>
+  <script src="/admin.js" defer></script>
+</body>
+</html>
