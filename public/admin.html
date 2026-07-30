@@ -1,1 +1,64 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f6c945"><title>Glamfest Pizza Admin</title><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/enhancements.css"></head><body><main class="admin-shell"><section id="login" class="login-box"><div class="official-brand admin-login-brand" role="img" aria-label="Glamfest Family Fun Day with hippo mascot"></div><span class="eyebrow">GLAMFEST KITCHEN</span><h1>Pizza admin</h1><p>Enter the kitchen PIN to view and manage orders.</p><label for="pin">Admin PIN</label><input id="pin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="Enter PIN"><button id="loginButton" class="primary" type="button">Open kitchen board</button><div id="loginMessage" class="message hidden"></div></section><section id="dashboard" class="hidden"><header class="admin-header"><div class="admin-brand"><div class="official-brand admin-brand-logo" role="img" aria-label="Glamfest Family Fun Day with hippo mascot"></div><div><span class="eyebrow">🍕 GLAMFEST KITCHEN</span><h1>Pizza order board — Time order</h1></div></div><div class="toolbar"><input id="search" placeholder="Search orders"><button id="refresh" type="button">Refresh</button><a class="link-button" href="/">Customer page</a><button id="logout" type="button">Lock</button></div></header><div id="summary" class="admin-summary"></div><div id="adminMessage" class="message hidden"></div><div class="admin-grid"><section><div id="orders" class="orders"></div></section><aside class="qr-panel"><div class="official-brand qr-brand" role="img" aria-label="Glamfest Family Fun Day with hippo mascot"></div><h2>Customer QR</h2><img id="qrImage" alt="QR code for the pizza ordering page"><p id="qrUrl" class="muted"></p><p class="muted">Display this code at the food tent so guests can order on their phones.</p></aside></div></section></main><script src="/admin.js" defer></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f6c945">
+  <title>Glamfest Kitchen Admin</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/enhancements.css">
+</head>
+<body class="admin-page">
+  <main class="admin-shell">
+    <section id="login" class="admin-login-screen">
+      <a class="back-to-orders" href="/">← Back to pizza ordering</a>
+
+      <div class="login-box">
+        <div class="login-visual" aria-hidden="true">
+          <div class="official-brand admin-login-brand"></div>
+          <div class="login-pizza-mark">🍕</div>
+          <p>Kitchen team access</p>
+        </div>
+
+        <div class="login-form-panel">
+          <span class="eyebrow">STAFF ONLY</span>
+          <div class="login-lock" aria-hidden="true">🔐</div>
+          <h1>Kitchen Admin</h1>
+          <p class="login-intro">Sign in to view orders, update preparation status and manage collection times.</p>
+
+          <label for="pin">Kitchen PIN</label>
+          <div class="pin-field">
+            <input id="pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="current-password" placeholder="Enter your PIN" aria-describedby="pinHelp">
+            <button id="togglePin" class="toggle-pin" type="button" aria-label="Show PIN" aria-pressed="false">Show</button>
+          </div>
+          <p id="pinHelp" class="pin-help">For authorised Glamfest kitchen staff.</p>
+
+          <button id="loginButton" class="primary login-button" type="button">
+            <span class="login-button-text">Open kitchen board</span>
+            <span class="login-button-arrow" aria-hidden="true">→</span>
+          </button>
+          <div id="loginMessage" class="message hidden" role="alert"></div>
+          <div class="login-security-note"><span aria-hidden="true">●</span> Secure staff area</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="dashboard" class="hidden">
+      <header class="admin-header">
+        <div class="admin-brand">
+          <div class="official-brand admin-brand-logo" role="img" aria-label="Glamfest Family Fun Day with hippo mascot"></div>
+          <div><span class="eyebrow">🍕 GLAMFEST KITCHEN</span><h1>Pizza order board — Time order</h1></div>
+        </div>
+        <div class="toolbar"><input id="search" placeholder="Search orders"><button id="refresh" type="button">Refresh</button><a class="link-button" href="/">Customer page</a><button id="logout" type="button">Lock</button></div>
+      </header>
+      <div id="summary" class="admin-summary"></div>
+      <div id="adminMessage" class="message hidden"></div>
+      <div class="admin-grid">
+        <section><div id="orders" class="orders"></div></section>
+        <aside class="qr-panel"><div class="official-brand qr-brand" role="img" aria-label="Glamfest Family Fun Day with hippo mascot"></div><h2>Customer QR</h2><img id="qrImage" alt="QR code for the pizza ordering page"><p id="qrUrl" class="muted"></p><p class="muted">Display this code at the food tent so guests can order on their phones.</p></aside>
+      </div>
+    </section>
+  </main>
+  <script src="/admin.js" defer></script>
+</body>
+</html>
