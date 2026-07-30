@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: glamfest-pizza-orders
+    runtime: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/config
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: ADMIN_PIN
+        value: "2222"
+      - key: PUBLIC_URL
+        sync: false
+      - key: DATA_DIR
+        value: /var/data
+    disk:
+      name: glamfest-pizza-data
+      mountPath: /var/data
+      sizeGB: 1
