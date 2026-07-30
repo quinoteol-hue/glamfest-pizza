@@ -22,15 +22,18 @@ async function login(){
   }catch(error){show($('#loginMessage'),error.message);}
 }
 function render(){
+  orders.sort((a,b)=>a.slot.localeCompare(b.slot)||a.orderNumber-b.orderNumber);
   const query=$('#search').value.trim().toLowerCase();
   const filtered=orders.filter(o=>[o.customerName,o.pizzaName,o.slot,String(o.orderNumber),o.status,...o.toppings].join(' ').toLowerCase().includes(query));
   $('#summary').innerHTML=statuses.map(s=>`<div class="stat"><b>${orders.filter(o=>o.status===s).length}</b><span>${s}</span></div>`).join('');
   $('#orders').innerHTML=filtered.length?filtered.map(orderCard).join(''):'<div class="order-card"><strong>No matching orders.</strong></div>';
   document.querySelectorAll('[data-order][data-status]').forEach(button=>button.addEventListener('click',()=>setStatus(button.dataset.order,button.dataset.status)));
+  document.querySelectorAll('[data-delete-order]').forEach(button=>button.addEventListener('click',()=>deleteOrder(button.dataset.deleteOrder)));
 }
 function orderCard(o){
   const details=o.toppings.length?o.toppings.join(', '):'Cheese and tomato only';
-  return `<article class="order-card">
+  return `<article class="order-card ${o.status==='Cancelled'?'cancelled-order':''}">
+    <div class="order-actions"><span class="time-order-label">TIME ORDER: ${escapeHtml(o.slot)}</span><button class="delete-order" data-delete-order="${o.id}" type="button" title="Permanently remove this order">× Remove</button></div>
     <div class="order-top"><div><div class="order-number">#${o.orderNumber} · ${escapeHtml(o.customerName)}</div><strong>${escapeHtml(o.pizzaName)}</strong></div><span class="slot-pill">${escapeHtml(o.slot)}</span></div>
     <div class="order-meta">${escapeHtml(details)}${o.oil!=='None'?` · ${escapeHtml(o.oil)}`:''}</div>
     <div class="status-row">${statuses.map(s=>`<button class="status-button ${o.status===s?'active':''}" data-order="${o.id}" data-status="${s}" type="button">${s}</button>`).join('')}</div>
@@ -44,6 +47,15 @@ async function setStatus(id,status){
   try{
     const data=await request(`/api/admin/orders/${encodeURIComponent(id)}`,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({status})});
     orders=orders.map(o=>o.id===id?data.order:o);render();hide($('#adminMessage'));
+  }catch(error){show($('#adminMessage'),error.message);}
+}
+async function deleteOrder(id){
+  const order=orders.find(o=>o.id===id);
+  if(!order)return;
+  if(!confirm(`Permanently remove order #${order.orderNumber} for ${order.customerName}? This cannot be undone.`))return;
+  try{
+    await request(`/api/admin/orders/${encodeURIComponent(id)}`,{method:'DELETE'});
+    orders=orders.filter(o=>o.id!==id);render();hide($('#adminMessage'));
   }catch(error){show($('#adminMessage'),error.message);}
 }
 async function loadQr(){
