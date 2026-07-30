@@ -5,13 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#f6c945">
   <title>Glamfest Pizza Orders</title>
-  <link rel="icon" href="/assets/glamfest-logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <header class="hero">
     <div class="hero-inner">
-      <img class="glamfest-logo hero-logo" src="/assets/glamfest-logo.svg" alt="Glamfest Family Fun Day">
+      <div class="official-brand hero-brand" role="img" aria-label="Glamfest Family Fun Day with hippo mascot"></div>
       <span class="eyebrow">GLAMFEST FOOD TENT</span>
       <h1>Order your pizza</h1>
       <p>Choose a special or build your own, then reserve a collection time.</p>
@@ -21,86 +20,20 @@
 
   <main class="container">
     <form id="orderForm" novalidate>
-      <section class="step-card">
-        <div class="step-number">1</div>
-        <div class="step-content">
-          <h2>Who is collecting?</h2>
-          <label for="customerName">Collector name</label>
-          <input id="customerName" name="customerName" maxlength="60" autocomplete="name" placeholder="Enter your name" required>
-        </div>
-      </section>
-
-      <section class="step-card">
-        <div class="step-number">2</div>
-        <div class="step-content">
-          <h2>Choose your pizza</h2>
-          <div class="pizza-grid">
-            <button type="button" class="pizza-card" data-special="resus">
-              <span class="pizza-icon">🌶️</span><strong>Resus Pizza</strong>
-              <small>Pepperoni, jalapeños, chillies and chilli oil</small>
-              <em>Warning: may cause sweating, tears and mild palpitations… but at least you know how Resus looks already!</em>
-            </button>
-            <button type="button" class="pizza-card" data-special="paeds">
-              <span class="pizza-icon">🍍</span><strong>Paeds Pizza</strong>
-              <small>Ham and pineapple</small>
-              <em>A little controversial… a little bit sweet and nice for a young spirit!</em>
-              <span class="tiny">sorry Pino 🇮🇹</span>
-            </button>
-            <button type="button" class="pizza-card" data-special="triage">
-              <span class="pizza-icon">🫑</span><strong>Triage Pizza</strong>
-              <small>Mushrooms, red onion, yellow pepper and green pepper</small>
-              <em>Four colours. Perfect triage.</em>
-            </button>
-            <button type="button" class="pizza-card" data-special="custom">
-              <span class="pizza-icon">✨</span><strong>Build Your Own</strong>
-              <small>Choose up to four toppings and a finishing drizzle</small>
-              <em>Your pizza, your clinical judgement.</em>
-            </button>
-          </div>
-
-          <div id="customBuilder" class="builder hidden">
-            <h3>Choose up to 4 toppings</h3>
-            <p class="muted"><span id="toppingCount">0</span>/4 selected</p>
-            <div id="toppings" class="choice-grid"></div>
-            <h3>Finishing drizzle</h3>
-            <div id="oils" class="choice-grid compact"></div>
-          </div>
-        </div>
-      </section>
-
-      <section class="step-card">
-        <div class="step-number">3</div>
-        <div class="step-content">
-          <h2>Choose a collection time</h2>
-          <label for="slot">Available slots</label>
-          <select id="slot" name="slot" required><option value="">Loading times…</option></select>
-          <p class="muted">Collection runs from 12:00 to 14:30. Each slot can only be booked once.</p>
-        </div>
-      </section>
-
-      <section class="step-card review-card">
-        <div class="step-number">4</div>
-        <div class="step-content">
-          <h2>Review your order</h2>
-          <div id="review" class="review"><p>Choose your pizza to see the order summary.</p></div>
-          <label class="confirm"><input id="confirm" type="checkbox" required> I have checked the name, pizza and collection time.</label>
-        </div>
-      </section>
-
-      <div id="message" class="message hidden" role="alert"></div>
-      <div class="sticky-submit"><button id="submitButton" class="primary" type="submit">Reserve my pizza</button></div>
+      <section class="step-card"><div class="step-number">1</div><div class="step-content"><h2>Who is collecting?</h2><label for="customerName">Collector name</label><input id="customerName" name="customerName" maxlength="60" autocomplete="name" placeholder="Enter your name" required></div></section>
+      <section class="step-card"><div class="step-number">2</div><div class="step-content"><h2>Choose your pizza</h2><div class="pizza-grid">
+        <button type="button" class="pizza-card" data-special="resus"><span class="pizza-icon">🌶️</span><strong>Resus Pizza</strong><small>Pepperoni, jalapeños, chillies and chilli oil</small><em>Warning: may cause sweating, tears and mild palpitations… but at least you know how Resus looks already!</em></button>
+        <button type="button" class="pizza-card" data-special="paeds"><span class="pizza-icon">🍍</span><strong>Paeds Pizza</strong><small>Ham and pineapple</small><em>A little controversial… a little bit sweet and nice for a young spirit!</em><span class="tiny">sorry Pino 🇮🇹</span></button>
+        <button type="button" class="pizza-card" data-special="triage"><span class="pizza-icon">🫑</span><strong>Triage Pizza</strong><small>Mushrooms, red onion, yellow pepper and green pepper</small><em>Four colours. Perfect triage.</em></button>
+        <button type="button" class="pizza-card" data-special="custom"><span class="pizza-icon">✨</span><strong>Build Your Own</strong><small>Choose up to four toppings and a finishing drizzle</small><em>Your pizza, your clinical judgement.</em></button>
+      </div><div id="customBuilder" class="builder hidden"><h3>Choose up to 4 toppings</h3><p class="muted"><span id="toppingCount">0</span>/4 selected</p><div id="toppings" class="choice-grid"></div><h3>Finishing drizzle</h3><div id="oils" class="choice-grid compact"></div></div></div></section>
+      <section class="step-card"><div class="step-number">3</div><div class="step-content"><h2>Choose a collection time</h2><label for="slot">Available slots</label><select id="slot" name="slot" required><option value="">Loading times…</option></select><p class="muted">Collection runs from 12:00 to 14:30. Each slot can only be booked once.</p></div></section>
+      <section class="step-card review-card"><div class="step-number">4</div><div class="step-content"><h2>Review your order</h2><div id="review" class="review"><p>Choose your pizza to see the order summary.</p></div><label class="confirm"><input id="confirm" type="checkbox" required> I have checked the name, pizza and collection time.</label></div></section>
+      <div id="message" class="message hidden" role="alert"></div><div class="sticky-submit"><button id="submitButton" class="primary" type="submit">Reserve my pizza</button></div>
     </form>
-
-    <section id="success" class="success hidden" aria-live="polite">
-      <img class="glamfest-logo success-logo" src="/assets/glamfest-logo.svg" alt="Glamfest Family Fun Day">
-      <div class="success-icon">✓</div>
-      <h2>Your pizza is booked!</h2>
-      <div id="successDetails"></div>
-      <button id="anotherOrder" class="secondary" type="button">Order another pizza</button>
-    </section>
+    <section id="success" class="success hidden" aria-live="polite"><div class="official-brand success-brand" role="img" aria-label="Glamfest Family Fun Day with hippo mascot"></div><div class="success-icon">✓</div><h2>Your pizza is booked!</h2><div id="successDetails"></div><button id="anotherOrder" class="secondary" type="button">Order another pizza</button></section>
   </main>
-
-  <footer><img class="glamfest-logo footer-logo" src="/assets/glamfest-logo.svg" alt="Glamfest Family Fun Day"><span>Pizza tent ordering</span></footer>
+  <footer><div class="official-brand footer-brand" role="img" aria-label="Glamfest Family Fun Day with hippo mascot"></div><span>Pizza tent ordering</span><a class="kitchen-admin-link" href="/admin">Kitchen Admin</a></footer>
   <script src="/app.js" defer></script>
 </body>
 </html>
