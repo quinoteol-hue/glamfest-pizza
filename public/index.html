@@ -5,11 +5,13 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#f6c945">
   <title>Glamfest Pizza Orders</title>
+  <link rel="icon" href="/assets/glamfest-logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <header class="hero">
     <div class="hero-inner">
+      <img class="glamfest-logo hero-logo" src="/assets/glamfest-logo.svg" alt="Glamfest Family Fun Day">
       <span class="eyebrow">GLAMFEST FOOD TENT</span>
       <h1>Order your pizza</h1>
       <p>Choose a special or build your own, then reserve a collection time.</p>
@@ -90,6 +92,7 @@
     </form>
 
     <section id="success" class="success hidden" aria-live="polite">
+      <img class="glamfest-logo success-logo" src="/assets/glamfest-logo.svg" alt="Glamfest Family Fun Day">
       <div class="success-icon">✓</div>
       <h2>Your pizza is booked!</h2>
       <div id="successDetails"></div>
@@ -97,7 +100,7 @@
     </section>
   </main>
 
-  <footer><span>GLAMFEST</span> • Pizza tent ordering</footer>
+  <footer><img class="glamfest-logo footer-logo" src="/assets/glamfest-logo.svg" alt="Glamfest Family Fun Day"><span>Pizza tent ordering</span></footer>
   <script src="/app.js" defer></script>
 </body>
 </html>
