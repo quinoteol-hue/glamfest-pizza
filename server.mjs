@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PORT = Number(process.env.PORT || 3000);
-const ADMIN_PIN = String(process.env.ADMIN_PIN || '2222');
+const ADMIN_PIN = String(process.env.ADMIN_PIN || '222');
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'orders.json');
 const MAX_PIZZAS = 80;
@@ -85,7 +85,7 @@ function normaliseOrder(body) {
   if (!customerName) throw new Error('Enter the name of the person collecting the pizza.');
   return { customerName, pizzaName, specialKey: SPECIALS[specialKey] ? specialKey : '', toppings, oil, slot };
 }
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.json': 'application/json; charset=utf-8' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.json': 'application/json; charset=utf-8' };
 function sendJson(res, status, value) {
   const body = JSON.stringify(value);
   res.writeHead(status, { 'content-type': MIME['.json'], 'content-length': Buffer.byteLength(body), 'cache-control': 'no-store' });
@@ -141,7 +141,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/admin/orders' && req.method === 'GET') {
       if (!isAdmin(req, url)) return sendJson(res, 401, { error: 'Incorrect admin PIN.' });
       const store = await readStore();
-      return sendJson(res, 200, { orders: [...store.orders].sort((a,b) => a.slot.localeCompare(b.slot)) });
+      return sendJson(res, 200, { orders: [...store.orders].sort((a,b) => a.slot.localeCompare(b.slot) || a.orderNumber - b.orderNumber) });
     }
     const adminMatch = pathname.match(/^\/api\/admin\/orders\/([^/]+)$/);
     if (adminMatch && req.method === 'PATCH') {
@@ -161,6 +161,18 @@ const server = http.createServer(async (req, res) => {
           found.status = status; found.updatedAt = new Date().toISOString(); return found;
         });
         return sendJson(res, 200, { order });
+      } catch (error) { return sendJson(res, 400, { error: error.message }); }
+    }
+    if (adminMatch && req.method === 'DELETE') {
+      if (!isAdmin(req, url)) return sendJson(res, 401, { error: 'Incorrect admin PIN.' });
+      try {
+        const deleted = await mutateStore(store => {
+          const index = store.orders.findIndex(o => o.id === adminMatch[1]);
+          if (index < 0) throw new Error('Order not found.');
+          const [removed] = store.orders.splice(index, 1);
+          return removed;
+        });
+        return sendJson(res, 200, { deleted });
       } catch (error) { return sendJson(res, 400, { error: error.message }); }
     }
     if (req.method !== 'GET') return sendJson(res, 405, { error: 'Method not allowed.' });
