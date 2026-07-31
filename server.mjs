@@ -11,7 +11,8 @@ const PORT = Number(process.env.PORT || 3000);
 const ADMIN_PIN = String(process.env.ADMIN_PIN || '222');
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'orders.json');
-const MAX_PIZZAS = 80;
+const DEFAULT_MAX_PIZZAS = 80;
+const DEFAULT_GLUTEN_FREE_LIMIT = 4;
 const START_MINUTES = 12 * 60;
 const END_MINUTES = 14 * 60 + 30;
 const SLOT_INTERVAL = 2;
@@ -21,6 +22,10 @@ const TOPPINGS = [
   'Green pepper', 'Black olives', 'Pineapple', 'Jalapeños', 'Chillies'
 ];
 const OILS = ['None', 'Garlic oil', 'Chilli oil'];
+const BASES = [
+  { key: 'standard', name: 'Standard base' },
+  { key: 'gluten-free', name: 'Gluten-free base' }
+];
 const SPECIALS = {
   resus: { name: 'Resus Pizza', toppings: ['Pepperoni', 'Jalapeños', 'Chillies'], oil: 'Chilli oil' },
   paeds: { name: 'Paeds Pizza', toppings: ['Ham', 'Pineapple'], oil: 'None' },
@@ -40,21 +45,34 @@ function allSlots() {
 }
 const VALID_SLOTS = new Set(allSlots());
 
+function defaultSettings() {
+  return { maxPizzas: DEFAULT_MAX_PIZZAS, glutenFreeLimit: DEFAULT_GLUTEN_FREE_LIMIT, unavailableIngredients: [] };
+}
+function normaliseSettings(value = {}) {
+  const maxPizzas = Math.max(1, Math.min(allSlots().length, Number.parseInt(value.maxPizzas, 10) || DEFAULT_MAX_PIZZAS));
+  const glutenFreeLimit = Math.max(0, Math.min(maxPizzas, Number.parseInt(value.glutenFreeLimit, 10) || DEFAULT_GLUTEN_FREE_LIMIT));
+  const validIngredients = new Set([...TOPPINGS, ...OILS.filter(o => o !== 'None')]);
+  const unavailableIngredients = Array.isArray(value.unavailableIngredients)
+    ? [...new Set(value.unavailableIngredients.map(v => cleanText(v, 30)).filter(v => validIngredients.has(v)))]
+    : [];
+  return { maxPizzas, glutenFreeLimit, unavailableIngredients };
+}
 async function ensureStore() {
   await fs.mkdir(DATA_DIR, { recursive: true });
   try { await fs.access(DATA_FILE); }
-  catch { await fs.writeFile(DATA_FILE, JSON.stringify({ orders: [] }, null, 2)); }
+  catch { await fs.writeFile(DATA_FILE, JSON.stringify({ orders: [], settings: defaultSettings() }, null, 2)); }
 }
 async function readStore() {
   await ensureStore();
   const parsed = JSON.parse(await fs.readFile(DATA_FILE, 'utf8'));
-  return { orders: Array.isArray(parsed.orders) ? parsed.orders : [] };
+  return { orders: Array.isArray(parsed.orders) ? parsed.orders : [], settings: normaliseSettings(parsed.settings) };
 }
 async function mutateStore(mutator) {
   let result;
   writeQueue = writeQueue.then(async () => {
     const store = await readStore();
     result = await mutator(store);
+    store.settings = normaliseSettings(store.settings);
     const tmp = `${DATA_FILE}.${process.pid}.${Date.now()}.tmp`;
     await fs.writeFile(tmp, JSON.stringify(store, null, 2));
     await fs.rename(tmp, DATA_FILE);
@@ -65,9 +83,17 @@ async function mutateStore(mutator) {
 function cleanText(value, max = 80) {
   return String(value ?? '').trim().replace(/\s+/g, ' ').slice(0, max);
 }
-function normaliseOrder(body) {
+function activeOrders(store) {
+  return store.orders.filter(o => o.status !== 'Cancelled');
+}
+function unavailableSpecials(settings) {
+  const unavailable = new Set(settings.unavailableIngredients);
+  return Object.fromEntries(Object.entries(SPECIALS).map(([key, special]) => [key, [...special.toppings, special.oil].some(i => i !== 'None' && unavailable.has(i))]));
+}
+function normaliseOrder(body, settings) {
   const customerName = cleanText(body.customerName, 60);
   const specialKey = cleanText(body.specialKey, 20).toLowerCase();
+  const base = cleanText(body.base, 20) || 'standard';
   let toppings = Array.isArray(body.toppings) ? body.toppings.map(v => cleanText(v, 30)) : [];
   let oil = cleanText(body.oil, 20) || 'None';
   let pizzaName = 'Build Your Own';
@@ -80,10 +106,14 @@ function normaliseOrder(body) {
   toppings = [...new Set(toppings)].filter(t => TOPPINGS.includes(t));
   if (toppings.length > 4) throw new Error('Choose a maximum of 4 toppings.');
   if (!OILS.includes(oil)) throw new Error('Choose a valid finishing oil.');
+  if (!BASES.some(item => item.key === base)) throw new Error('Choose a valid pizza base.');
+  const unavailable = new Set(settings.unavailableIngredients);
+  const unavailableUsed = [...toppings, oil].filter(i => i !== 'None' && unavailable.has(i));
+  if (unavailableUsed.length) throw new Error(`${unavailableUsed[0]} is no longer available. Please choose another option.`);
   const slot = cleanText(body.slot, 5);
   if (!VALID_SLOTS.has(slot)) throw new Error('Choose an available collection time between 12:00 and 14:30.');
   if (!customerName) throw new Error('Enter the name of the person collecting the pizza.');
-  return { customerName, pizzaName, specialKey: SPECIALS[specialKey] ? specialKey : '', toppings, oil, slot };
+  return { customerName, pizzaName, specialKey: SPECIALS[specialKey] ? specialKey : '', base, toppings, oil, slot };
 }
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.json': 'application/json; charset=utf-8' };
 function sendJson(res, status, value) {
@@ -107,7 +137,7 @@ async function bodyJson(req) {
   return chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {};
 }
 function isAdmin(req, url) {
-  return String(req.headers['x-admin-pin'] || url.searchParams.get('pin') || '') === ADMIN_PIN;
+  return String(req.headers['x-admin-pin']'] || url.searchParams.get('pin') || '') === ADMIN_PIN;
 }
 
 const server = http.createServer(async (req, res) => {
@@ -116,8 +146,25 @@ const server = http.createServer(async (req, res) => {
     const pathname = decodeURIComponent(url.pathname);
     if (req.method === 'GET' && pathname === '/api/config') {
       const store = await readStore();
-      const active = store.orders.filter(o => o.status !== 'Cancelled');
-      return sendJson(res, 200, { toppings: TOPPINGS, oils: OILS, specials: SPECIALS, slots: allSlots(), usedSlots: active.map(o => o.slot), maxPizzas: MAX_PIZZAS, currentCount: active.length, remaining: Math.max(0, MAX_PIZZAS - active.length), effectiveCapacity: allSlots().length });
+      const active = activeOrders(store);
+      const glutenFreeUsed = active.filter(o => o.base === 'gluten-free').length;
+      const unavailable = new Set(store.settings.unavailableIngredients);
+      return sendJson(res, 200, {
+        toppings: TOPPINGS.filter(i => !unavailable.has(i)),
+        oils: OILS.filter(i => i === 'None' || !unavailable.has(i)),
+        allIngredients: [...TOPPINGS, ...OILS.filter(o => o !== 'None')],
+        unavailableIngredients: store.settings.unavailableIngredients,
+        specials: SPECIALS,
+        unavailableSpecials: unavailableSpecials(store.settings),
+        bases: BASES,
+        slots: allSlots(), usedSlots: active.map(o => o.slot),
+        maxPizzas: store.settings.maxPizzas, currentCount: active.length,
+        remaining: Math.max(0, store.settings.maxPizzas - active.length),
+        glutenFreeLimit: store.settings.glutenFreeLimit,
+        glutenFreeUsed,
+        glutenFreeRemaining: Math.max(0, store.settings.glutenFreeLimit - glutenFreeUsed),
+        effectiveCapacity: Math.min(allSlots().length, store.settings.maxPizzas)
+      });
     }
     if (req.method === 'GET' && pathname === '/api/qr') {
       const configured = cleanText(process.env.PUBLIC_URL, 300);
@@ -127,10 +174,12 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'POST' && pathname === '/api/orders') {
       try {
-        const input = normaliseOrder(await bodyJson(req));
+        const payload = await bodyJson(req);
         const order = await mutateStore(store => {
-          const active = store.orders.filter(o => o.status !== 'Cancelled');
-          if (active.length >= MAX_PIZZAS) throw new Error('All 80 pizzas have now been reserved.');
+          const input = normaliseOrder(payload, store.settings);
+          const active = activeOrders(store);
+          if (active.length >= store.settings.maxPizzas) throw new Error(`All ${store.settings.maxPizzas} pizzas have now been reserved.`);
+          if (input.base === 'gluten-free' && active.filter(o => o.base === 'gluten-free').length >= store.settings.glutenFreeLimit) throw new Error('All gluten-free pizza bases have now been reserved.');
           if (active.some(o => o.slot === input.slot)) throw new Error('That time has just been taken. Please choose another slot.');
           const created = { id: crypto.randomUUID(), orderNumber: store.orders.length + 1, ...input, status: 'Pending', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
           store.orders.push(created); return created;
@@ -141,7 +190,23 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/admin/orders' && req.method === 'GET') {
       if (!isAdmin(req, url)) return sendJson(res, 401, { error: 'Incorrect admin PIN.' });
       const store = await readStore();
-      return sendJson(res, 200, { orders: [...store.orders].sort((a,b) => a.slot.localeCompare(b.slot) || a.orderNumber - b.orderNumber) });
+      return sendJson(res, 200, { orders: [...store.orders].sort((a,b) => a.slot.localeCompare(b.slot) || a.orderNumber - b.orderNumber), settings: store.settings, ingredients: [...TOPPINGS, ...OILS.filter(o => o !== 'None')] });
+    }
+    if (pathname === '/api/admin/settings' && req.method === 'PATCH') {
+      if (!isAdmin(req, url)) return sendJson(res, 401, { error: 'Incorrect admin PIN.' });
+      try {
+        const payload = await bodyJson(req);
+        const settings = await mutateStore(store => {
+          const active = activeOrders(store);
+          const next = normaliseSettings({ ...store.settings, ...payload });
+          if (next.maxPizzas < active.length) throw new Error(`Capacity cannot be below the ${active.length} active orders already booked.`);
+          const glutenFreeUsed = active.filter(o => o.base === 'gluten-free').length;
+          if (next.glutenFreeLimit < glutenFreeUsed) throw new Error(`Gluten-free limit cannot be below the ${glutenFreeUsed} active gluten-free orders already booked.`);
+          store.settings = next;
+          return next;
+        });
+        return sendJson(res, 200, { settings });
+      } catch (error) { return sendJson(res, 400, { error: error.message }); }
     }
     const adminMatch = pathname.match(/^\/api\/admin\/orders\/([^/]+)$/);
     if (adminMatch && req.method === 'PATCH') {
@@ -154,8 +219,9 @@ const server = http.createServer(async (req, res) => {
           const found = store.orders.find(o => o.id === adminMatch[1]);
           if (!found) throw new Error('Order not found.');
           if (status !== 'Cancelled' && found.status === 'Cancelled') {
-            const active = store.orders.filter(o => o.status !== 'Cancelled' && o.id !== found.id);
-            if (active.length >= MAX_PIZZAS) throw new Error('The 80-pizza limit has been reached.');
+            const active = activeOrders(store).filter(o => o.id !== found.id);
+            if (active.length >= store.settings.maxPizzas) throw new Error('The pizza capacity has been reached.');
+            if (found.base === 'gluten-free' && active.filter(o => o.base === 'gluten-free').length >= store.settings.glutenFreeLimit) throw new Error('The gluten-free base limit has been reached.');
             if (active.some(o => o.slot === found.slot)) throw new Error('That collection slot is now occupied.');
           }
           found.status = status; found.updatedAt = new Date().toISOString(); return found;
