@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-labelledby="title desc">
+  <title id="title">Red pepper</title>
+  <desc id="desc">A whole red bell pepper ingredient illustration.</desc>
+  <defs>
+    <linearGradient id="pepperBody" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff5a51"/>
+      <stop offset="0.5" stop-color="#e92720"/>
+      <stop offset="1" stop-color="#a90f16"/>
+    </linearGradient>
+    <linearGradient id="pepperLight" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="stem" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#61a83e"/>
+      <stop offset="1" stop-color="#1f682d"/>
+    </linearGradient>
+    <filter id="shadow" x="-25%" y="-25%" width="150%" height="170%">
+      <feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#3c0b0b" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)">
+    <path fill="url(#stem)" d="M45 25c-2-8 1-14 8-18 4 5 4 11 1 18l-9 4z"/>
+    <path fill="#2d7c31" d="M43 25c8-5 16-4 22 2-5 3-10 4-16 3z"/>
+    <path fill="url(#pepperBody)" d="M47 23c9-2 17 2 22 10 10 1 17 8 18 19 1 14-7 29-20 35-8 4-15 0-20-6-5 6-13 10-21 6C12 80 7 65 10 50c2-10 9-17 19-18 4-7 10-10 18-9z"/>
+    <path fill="#bd151c" d="M47 27c5 12 6 35 0 51-5-13-6-37 0-51z" opacity="0.72"/>
+    <path fill="#d91c20" d="M28 36c-7 11-8 31 0 44-11-8-14-29-6-40 2-2 4-4 6-4z"/>
+    <path fill="#b80f19" d="M67 35c8 10 9 30 1 44 12-7 15-28 7-40-2-2-5-4-8-4z"/>
+    <path fill="url(#pepperLight)" d="M26 38c8-8 17-8 20-6-8 4-15 15-18 29-4-8-5-17-2-23z" opacity="0.7"/>
+    <ellipse cx="33" cy="41" rx="5" ry="9" fill="#fff" opacity="0.18" transform="rotate(28 33 41)"/>
+  </g>
+</svg>
