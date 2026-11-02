@@ -39,6 +39,7 @@ function renderSettings(){
   if(!settings)return;
   const activeId=document.activeElement?.id;
   $('#maxPizzas').value=settings.maxPizzas;
+  for(const id of ['serviceStart','serviceEnd']){const field=$('#'+id),value=settings[id];if(value&&![...field.options].some(o=>o.value===value)){field.add(new Option(value+' (current)',value));}}
   $('#serviceStart').value=settings.serviceStart||'';$('#serviceEnd').value=settings.serviceEnd||'';$('#pizzasPerSlot').value=settings.pizzasPerSlot||1;$('#slotMinutes').value=settings.slotMinutes||3;
   $('#auditEnabled').checked=Boolean(settings.auditEnabled);const breakSelect=$('#auditBreakStart');if(settings.auditBreakStart&&![...breakSelect.options].some(o=>o.value===settings.auditBreakStart)){breakSelect.add(new Option(settings.auditBreakStart+' (current)',settings.auditBreakStart));}breakSelect.value=settings.auditBreakStart||'';$('#auditBreakMinutes').value=settings.auditBreakMinutes;$('#auditPizzas').value=settings.auditPizzas;
   renderAuditPlan();
