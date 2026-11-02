@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { slotHasPassed } from './booking-clock.mjs';
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -54,7 +55,7 @@ function auditPrepSlots(settings){
 function capacityInfo(settings){const slots=allSlots(settings).length,prep=auditPrepSlots(settings).size,staff=(slots-prep)*settings.pizzasPerSlot,audit=settings.auditEnabled?settings.auditPizzas:0;return{slots,staff,audit,timetable:staff+audit};}
 function auditInfo(settings,active){
   const start=toMinutes(settings.auditBreakStart),prep=[...auditPrepSlots(settings)].sort(),booked=active.filter(o=>o.audit).length;
-  return{enabled:settings.auditEnabled,breakStart:settings.auditBreakStart,breakEnd:toHHMM(start+settings.auditBreakMinutes),breakMinutes:settings.auditBreakMinutes,reserved:settings.auditPizzas,booked,remaining:Math.max(0,settings.auditPizzas-booked),prepFrom:prep[0]||'',prepTo:prep.length?toHHMM(toMinutes(prep[prep.length-1])+settings.slotMinutes):''};
+  return{enabled:settings.auditEnabled,breakStart:settings.auditBreakStart,breakEnd:toHHMM(start+settings.auditBreakMinutes),breakMinutes:settings.auditBreakMinutes,reserved:settings.auditPizzas,booked,remaining:slotHasPassed(settings.auditBreakStart)?0:Math.max(0,settings.auditPizzas-booked),prepFrom:prep[0]||'',prepTo:prep.length?toHHMM(toMinutes(prep[prep.length-1])+settings.slotMinutes):''};
 }
 // Storage: Postgres when DATABASE_URL is set (free hosting has no persistent disk), otherwise a local JSON file.
 const DATABASE_URL=process.env.DATABASE_URL||'';
@@ -105,6 +106,7 @@ function normaliseOrder(body,settings){
 }
 // Checks that an order (new or reopened) still fits. `active` must not include the order itself.
 function assertFits(order,active,settings){
+  if(slotHasPassed(order.slot))throw new Error('That collection time has passed. Please choose a future time.');
   if(active.length>=settings.maxPizzas)throw new Error(`All ${settings.maxPizzas} pizzas have now been reserved.`);
   if(order.audit){
     if(!settings.auditEnabled)throw new Error('Audit team ordering is closed.');
@@ -128,7 +130,7 @@ const server=http.createServer(async(req,res)=>{
   if(req.method==='GET'&&pathname==='/api/config'){
     const store=await readStore(),active=activeOrders(store),unavailable=new Set(store.settings.unavailableIngredients),prep=auditPrepSlots(store.settings);
     const perSlot={};for(const o of active)if(!o.audit)perSlot[o.slot]=(perSlot[o.slot]||0)+1;
-    const usedSlots=[...new Set([...Object.keys(perSlot).filter(k=>perSlot[k]>=store.settings.pizzasPerSlot),...prep])];
+    const usedSlots=[...new Set([...Object.keys(perSlot).filter(k=>perSlot[k]>=store.settings.pizzasPerSlot),...prep,...allSlots(store.settings).filter(slot=>slotHasPassed(slot))])];
     return sendJson(res,200,{toppings:TOPPINGS.filter(i=>!unavailable.has(i)),oils:OILS.filter(i=>i==='None'||!unavailable.has(i)),specials:SPECIALS,unavailableSpecials:unavailableSpecials(store.settings),slots:allSlots(store.settings),serviceStart:store.settings.serviceStart,serviceEnd:store.settings.serviceEnd,pizzasPerSlot:store.settings.pizzasPerSlot,slotMinutes:store.settings.slotMinutes,usedSlots,maxPizzas:store.settings.maxPizzas,currentCount:active.length,remaining:Math.max(0,store.settings.maxPizzas-active.length),audit:auditInfo(store.settings,active),capacity:capacityInfo(store.settings)});
   }
   if(req.method==='GET'&&pathname==='/api/qr'){const configured=cleanText(process.env.PUBLIC_URL,300),origin=configured||`${req.headers['x-forwarded-proto']||'http'}://${req.headers.host}`,qr=u=>`https://api.qrserver.com/v1/create-qr-code/?size=900x900&ecc=H&data=${encodeURIComponent(u)}`,base=origin.replace(/\/+$/,''),auditUrl=`${base}/audit`;return sendJson(res,200,{url:origin,imageUrl:qr(origin),auditUrl,auditImageUrl:qr(auditUrl)});}
