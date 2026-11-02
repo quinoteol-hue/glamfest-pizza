@@ -16,7 +16,7 @@ const SLOT_INTERVAL = 2;
 // Audit team: their pizzas are all ready together at the start of their break.
 // The kitchen cooking time just before the break (one pizza per slot) is kept free of staff bookings.
 const DEFAULT_AUDIT = {auditEnabled:true,auditBreakStart:'13:00',auditBreakMinutes:40,auditPizzas:15};
-const TOPPINGS = ['Pepperoni','Ham','Mushrooms','Red onion','Red pepper','Yellow pepper','Green pepper','Black olives','Pineapple','Jalapeños','Chillies'];
+const TOPPINGS = ['Pepperoni','Ham','Mushrooms','Red onion','White onion','Red pepper','Yellow pepper','Green pepper','Black olives','Pineapple','Jalapeños','Chillies'];
 const OILS = ['None'];
 const SPECIALS = {
   resus:{name:'Resus Pizza',toppings:['Pepperoni','Jalapeños','Chillies'],oil:'None'},
