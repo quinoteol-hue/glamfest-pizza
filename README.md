@@ -8,7 +8,7 @@ Standalone, mobile-first pizza ordering app for Glamfest.
 - Build-your-own pizza with up to 4 toppings
 - Garlic oil or chilli oil
 - Ingredient icons displayed during selection and order review
-- One unique collection slot every 2 minutes from 12:00 to 14:30
+- Collection times every 3 minutes from 12:00 to 14:30 by default; window, minutes and pizzas per time are set on the kitchen board
 - Maximum global limit of 80 pizzas
 - Duplicate-slot protection
 - Customer confirmation screen
@@ -19,7 +19,7 @@ Standalone, mobile-first pizza ordering app for Glamfest.
 
 ## Capacity note
 
-From 12:00 through 14:30 inclusive, one pizza every 2 minutes provides 76 unique collection slots. The app also retains the requested global safety cap of 80 pizzas.
+From 12:00 through 14:30 inclusive, one pizza every 3 minutes provides 51 collection times; the kitchen board shows the live total. The app also retains the requested global safety cap of 80 pizzas.
 
 ## Run locally
 

@@ -39,7 +39,7 @@ function renderSettings(){
   if(!settings)return;
   const activeId=document.activeElement?.id;
   $('#maxPizzas').value=settings.maxPizzas;
-  $('#serviceStart').value=settings.serviceStart||'';$('#serviceEnd').value=settings.serviceEnd||'';$('#pizzasPerSlot').value=settings.pizzasPerSlot||1;
+  $('#serviceStart').value=settings.serviceStart||'';$('#serviceEnd').value=settings.serviceEnd||'';$('#pizzasPerSlot').value=settings.pizzasPerSlot||1;$('#slotMinutes').value=settings.slotMinutes||3;
   $('#auditEnabled').checked=Boolean(settings.auditEnabled);$('#auditBreakStart').value=settings.auditBreakStart||'';$('#auditBreakMinutes').value=settings.auditBreakMinutes;$('#auditPizzas').value=settings.auditPizzas;
   renderAuditPlan();
   const unavailable=new Set(settings.unavailableIngredients||[]);
@@ -48,31 +48,31 @@ function renderSettings(){
 }
 
 // Live plan: recalculated from the form as the kitchen types, before saving (mirrors server rules).
-const SLOT_MIN=2;
+function slotMin(){return Math.max(1,Math.min(15,parseInt($('#slotMinutes').value,10)||3));}
 function mins(t){const m=/^(\d{1,2}):(\d{2})/.exec(t||'');return m?Number(m[1])*60+Number(m[2]):NaN;}
 function hhmm(m){return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;}
-function snap(m){return Math.round(m/SLOT_MIN)*SLOT_MIN;}
+function snap(m){return m;}
 function formPlan(){
-  const start=snap(mins($('#serviceStart').value)),end=snap(mins($('#serviceEnd').value)),per=Math.max(1,Math.min(6,parseInt($('#pizzasPerSlot').value,10)||1));
+  const step=slotMin(),start=snap(mins($('#serviceStart').value)),end=snap(mins($('#serviceEnd').value)),per=Math.max(1,Math.min(6,parseInt($('#pizzasPerSlot').value,10)||1));
   const auditOn=$('#auditEnabled').checked,auditN=Math.max(0,parseInt($('#auditPizzas').value,10)||0),breakStart=snap(mins($('#auditBreakStart').value)),breakLen=parseInt($('#auditBreakMinutes').value,10)||0;
   const maxP=parseInt($('#maxPizzas').value,10)||0;
   if(!Number.isFinite(start)||!Number.isFinite(end))return {error:'Enter a collection start and end time.'};
   if(end<start)return {error:'Collection end must be after collection start.'};
-  const times=[];for(let m=start;m<=end;m+=SLOT_MIN)times.push(m);
+  const times=[];for(let m=start;m<=end;m+=step)times.push(m);
   let prepFrom=NaN,prepInWindow=0,auditCount=0;
-  if(auditOn&&auditN&&Number.isFinite(breakStart)){auditCount=auditN;prepFrom=breakStart-Math.ceil(auditN/per)*SLOT_MIN;prepInWindow=times.filter(m=>m>=prepFrom&&m<breakStart).length;}
+  if(auditOn&&auditN&&Number.isFinite(breakStart)){auditCount=auditN;prepFrom=breakStart-Math.ceil(auditN/per)*step;prepInWindow=times.filter(m=>m>=prepFrom&&m<breakStart).length;}
   const staff=(times.length-prepInWindow)*per,total=staff+auditCount;
-  return {start,end,per,times:times.length,staff,auditCount,auditOn,breakStart,breakLen,prepFrom,total,maxP,limit:Math.min(total,maxP||total)};
+  return {step,start,end,per,times:times.length,staff,auditCount,auditOn,breakStart,breakLen,prepFrom,total,maxP,limit:Math.min(total,maxP||total)};
 }
 function changedFromSaved(){
-  const f={serviceStart:$('#serviceStart').value,serviceEnd:$('#serviceEnd').value,pizzasPerSlot:String(parseInt($('#pizzasPerSlot').value,10)),maxPizzas:String(parseInt($('#maxPizzas').value,10)),auditEnabled:$('#auditEnabled').checked,auditBreakStart:$('#auditBreakStart').value,auditBreakMinutes:String(parseInt($('#auditBreakMinutes').value,10)),auditPizzas:String(parseInt($('#auditPizzas').value,10))};
-  return f.serviceStart!==settings.serviceStart||f.serviceEnd!==settings.serviceEnd||f.pizzasPerSlot!==String(settings.pizzasPerSlot)||f.maxPizzas!==String(settings.maxPizzas)||f.auditEnabled!==Boolean(settings.auditEnabled)||f.auditBreakStart!==settings.auditBreakStart||f.auditBreakMinutes!==String(settings.auditBreakMinutes)||f.auditPizzas!==String(settings.auditPizzas);
+  const f={serviceStart:$('#serviceStart').value,serviceEnd:$('#serviceEnd').value,pizzasPerSlot:String(parseInt($('#pizzasPerSlot').value,10)),slotMinutes:String(parseInt($('#slotMinutes').value,10)),maxPizzas:String(parseInt($('#maxPizzas').value,10)),auditEnabled:$('#auditEnabled').checked,auditBreakStart:$('#auditBreakStart').value,auditBreakMinutes:String(parseInt($('#auditBreakMinutes').value,10)),auditPizzas:String(parseInt($('#auditPizzas').value,10))};
+  return f.serviceStart!==settings.serviceStart||f.serviceEnd!==settings.serviceEnd||f.pizzasPerSlot!==String(settings.pizzasPerSlot)||f.slotMinutes!==String(settings.slotMinutes)||f.maxPizzas!==String(settings.maxPizzas)||f.auditEnabled!==Boolean(settings.auditEnabled)||f.auditBreakStart!==settings.auditBreakStart||f.auditBreakMinutes!==String(settings.auditBreakMinutes)||f.auditPizzas!==String(settings.auditPizzas);
 }
 function renderAuditPlan(){
   const p=formPlan(),a=audit||{},unsaved=changedFromSaved();
   const badge=unsaved?'<span class="unsaved-badge">Not saved yet – press “Save kitchen availability”</span>':'<span class="saved-badge">✓ Saved – customers see this now</span>';
   if(p.error){$('#capacityPlan').innerHTML=`${badge}<p class="plan-error">${escapeHtml(p.error)}</p>`;$('#auditPlan').innerHTML='';return;}
-  const pace=p.per===1?'1 pizza every 2 minutes':(p.per===2?'2 pizzas every 2 minutes (1 a minute)':`${p.per} pizzas every 2 minutes (1 every ${Math.round(120/p.per)} seconds)`);
+  const mm=n=>`${n} minute${n===1?'':'s'}`,pace=p.per===1?`1 pizza every ${mm(p.step)}`:`${p.per} pizzas every ${mm(p.step)} (about 1 every ${Math.round(p.step*60/p.per)} seconds)`;
   const hours=Math.floor((p.end-p.start)/60),m=(p.end-p.start)%60,span=`${hours?hours+' h ':''}${m?m+' min':''}`.trim();
   let stock='';
   if(p.maxP&&p.maxP<p.total)stock=`<li class="plan-warn">Stock limit is <strong>${p.maxP}</strong>, lower than the timetable, so ordering stops at ${p.maxP}.</li>`;
@@ -115,7 +115,7 @@ function orderCard(o){
 async function saveSettings(){
   const unavailable=[...document.querySelectorAll('#ingredientControls input:not(:checked)')].map(i=>i.value);
   try{
-    const data=await request('/api/admin/settings',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({maxPizzas:Number($('#maxPizzas').value),serviceStart:$('#serviceStart').value,serviceEnd:$('#serviceEnd').value,pizzasPerSlot:Number($('#pizzasPerSlot').value),auditEnabled:$('#auditEnabled').checked,auditBreakStart:$('#auditBreakStart').value,auditBreakMinutes:Number($('#auditBreakMinutes').value),auditPizzas:Number($('#auditPizzas').value),unavailableIngredients:unavailable})});
+    const data=await request('/api/admin/settings',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({maxPizzas:Number($('#maxPizzas').value),serviceStart:$('#serviceStart').value,serviceEnd:$('#serviceEnd').value,pizzasPerSlot:Number($('#pizzasPerSlot').value),slotMinutes:Number($('#slotMinutes').value),auditEnabled:$('#auditEnabled').checked,auditBreakStart:$('#auditBreakStart').value,auditBreakMinutes:Number($('#auditBreakMinutes').value),auditPizzas:Number($('#auditPizzas').value),unavailableIngredients:unavailable})});
     settings=data.settings;await refresh(true);renderSettings();render();
     show($('#adminMessage'),'Kitchen availability saved. Customer options are updated immediately.');
   }catch(error){show($('#adminMessage'),error.message);}
@@ -157,7 +157,7 @@ $('#pin').onkeydown=e=>{if(e.key==='Enter')login();};
 $('#togglePin').onclick=()=>{const input=$('#pin'),showing=input.type==='text';input.type=showing?'password':'text';$('#togglePin').textContent=showing?'Show':'Hide';};
 $('#refresh').onclick=()=>refresh(false);
 $('#saveSettings').onclick=saveSettings;
-['serviceStart','serviceEnd','pizzasPerSlot','maxPizzas','auditEnabled','auditBreakStart','auditBreakMinutes','auditPizzas'].forEach(id=>{const el=document.getElementById(id);el.addEventListener('input',renderAuditPlan);el.addEventListener('change',renderAuditPlan);});
+['serviceStart','serviceEnd','slotMinutes','pizzasPerSlot','maxPizzas','auditEnabled','auditBreakStart','auditBreakMinutes','auditPizzas'].forEach(id=>{const el=document.getElementById(id);el.addEventListener('input',renderAuditPlan);el.addEventListener('change',renderAuditPlan);});
 $('#search').oninput=()=>render({preservePosition:false});
 $('#logout').onclick=()=>{sessionStorage.removeItem('glamfestAdminPin');location.reload();};
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&pin)refresh(true);});

@@ -11,8 +11,7 @@ const ADMIN_PIN = String(process.env.ADMIN_PIN || '222');
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'orders.json');
 const DEFAULT_MAX_PIZZAS = 80;
-const DEFAULT_SERVICE = {serviceStart:'12:00',serviceEnd:'14:30',pizzasPerSlot:1};
-const SLOT_INTERVAL = 2;
+const DEFAULT_SERVICE = {serviceStart:'12:00',serviceEnd:'14:30',slotMinutes:3,pizzasPerSlot:1};
 // Audit team: their pizzas are all ready together at the start of their break.
 // The kitchen cooking time just before the break (one pizza per slot) is kept free of staff bookings.
 const DEFAULT_AUDIT = {auditEnabled:true,auditBreakStart:'13:00',auditBreakMinutes:40,auditPizzas:15};
@@ -27,8 +26,8 @@ let writeQueue=Promise.resolve();
 function cleanText(value,max=80){return String(value??'').trim().replace(/\s+/g,' ').slice(0,max);}
 function toMinutes(hhmm){const m=/^(\d{1,2}):(\d{2})$/.exec(String(hhmm||''));if(!m)return NaN;const h=Number(m[1]),min=Number(m[2]);return h<24&&min<60?h*60+min:NaN;}
 function toHHMM(minutes){return `${String(Math.floor(minutes/60)).padStart(2,'0')}:${String(minutes%60).padStart(2,'0')}`;}
-function allSlots(settings){const slots=[];for(let m=toMinutes(settings.serviceStart);m<=toMinutes(settings.serviceEnd);m+=SLOT_INTERVAL)slots.push(toHHMM(m));return slots;}
-function normaliseTime(value,fallback){let m=toMinutes(cleanText(value,5));if(!Number.isFinite(m)||m<6*60||m>22*60)m=toMinutes(fallback);return toHHMM(Math.round(m/SLOT_INTERVAL)*SLOT_INTERVAL);}
+function allSlots(settings){const slots=[];for(let m=toMinutes(settings.serviceStart);m<=toMinutes(settings.serviceEnd);m+=settings.slotMinutes)slots.push(toHHMM(m));return slots;}
+function normaliseTime(value,fallback){let m=toMinutes(cleanText(value,5));if(!Number.isFinite(m)||m<6*60||m>22*60)m=toMinutes(fallback);return toHHMM(m);}
 function defaultSettings(){return{maxPizzas:DEFAULT_MAX_PIZZAS,unavailableIngredients:[],...DEFAULT_SERVICE,...DEFAULT_AUDIT};}
 function clampInt(value,min,max,fallback){const n=Number.parseInt(value,10);return Number.isFinite(n)?Math.max(min,Math.min(max,n)):fallback;}
 function normaliseSettings(value={}){
@@ -40,21 +39,22 @@ function normaliseSettings(value={}){
   const serviceStart=normaliseTime(value.serviceStart,DEFAULT_SERVICE.serviceStart);
   let serviceEnd=normaliseTime(value.serviceEnd,DEFAULT_SERVICE.serviceEnd);
   if(toMinutes(serviceEnd)<toMinutes(serviceStart))serviceEnd=serviceStart;
+  const slotMinutes=clampInt(value.slotMinutes,1,15,DEFAULT_SERVICE.slotMinutes);
   const pizzasPerSlot=clampInt(value.pizzasPerSlot,1,6,DEFAULT_SERVICE.pizzasPerSlot);
   const auditBreakMinutes=clampInt(value.auditBreakMinutes,10,120,DEFAULT_AUDIT.auditBreakMinutes);
   const auditPizzas=clampInt(value.auditPizzas,0,80,DEFAULT_AUDIT.auditPizzas);
-  return{maxPizzas,unavailableIngredients,serviceStart,serviceEnd,pizzasPerSlot,auditEnabled,auditBreakStart:toHHMM(start),auditBreakMinutes,auditPizzas};
+  return{maxPizzas,unavailableIngredients,serviceStart,serviceEnd,slotMinutes,pizzasPerSlot,auditEnabled,auditBreakStart:toHHMM(start),auditBreakMinutes,auditPizzas};
 }
 // Staff slots kept free so the kitchen can cook the audit pizzas before their break starts.
 function auditPrepSlots(settings){
   if(!settings.auditEnabled||!settings.auditPizzas)return new Set();
-  const start=toMinutes(settings.auditBreakStart),from=start-Math.ceil(settings.auditPizzas/settings.pizzasPerSlot)*SLOT_INTERVAL;
+  const start=toMinutes(settings.auditBreakStart),from=start-Math.ceil(settings.auditPizzas/settings.pizzasPerSlot)*settings.slotMinutes;
   return new Set(allSlots(settings).filter(s=>{const m=toMinutes(s);return m>=from&&m<start;}));
 }
 function capacityInfo(settings){const slots=allSlots(settings).length,prep=auditPrepSlots(settings).size,staff=(slots-prep)*settings.pizzasPerSlot,audit=settings.auditEnabled?settings.auditPizzas:0;return{slots,staff,audit,timetable:staff+audit};}
 function auditInfo(settings,active){
   const start=toMinutes(settings.auditBreakStart),prep=[...auditPrepSlots(settings)].sort(),booked=active.filter(o=>o.audit).length;
-  return{enabled:settings.auditEnabled,breakStart:settings.auditBreakStart,breakEnd:toHHMM(start+settings.auditBreakMinutes),breakMinutes:settings.auditBreakMinutes,reserved:settings.auditPizzas,booked,remaining:Math.max(0,settings.auditPizzas-booked),prepFrom:prep[0]||'',prepTo:prep.length?toHHMM(toMinutes(prep[prep.length-1])+SLOT_INTERVAL):''};
+  return{enabled:settings.auditEnabled,breakStart:settings.auditBreakStart,breakEnd:toHHMM(start+settings.auditBreakMinutes),breakMinutes:settings.auditBreakMinutes,reserved:settings.auditPizzas,booked,remaining:Math.max(0,settings.auditPizzas-booked),prepFrom:prep[0]||'',prepTo:prep.length?toHHMM(toMinutes(prep[prep.length-1])+settings.slotMinutes):''};
 }
 // Storage: Postgres when DATABASE_URL is set (free hosting has no persistent disk), otherwise a local JSON file.
 const DATABASE_URL=process.env.DATABASE_URL||'';
@@ -129,7 +129,7 @@ const server=http.createServer(async(req,res)=>{
     const store=await readStore(),active=activeOrders(store),unavailable=new Set(store.settings.unavailableIngredients),prep=auditPrepSlots(store.settings);
     const perSlot={};for(const o of active)if(!o.audit)perSlot[o.slot]=(perSlot[o.slot]||0)+1;
     const usedSlots=[...new Set([...Object.keys(perSlot).filter(k=>perSlot[k]>=store.settings.pizzasPerSlot),...prep])];
-    return sendJson(res,200,{toppings:TOPPINGS.filter(i=>!unavailable.has(i)),oils:OILS.filter(i=>i==='None'||!unavailable.has(i)),specials:SPECIALS,unavailableSpecials:unavailableSpecials(store.settings),slots:allSlots(store.settings),serviceStart:store.settings.serviceStart,serviceEnd:store.settings.serviceEnd,pizzasPerSlot:store.settings.pizzasPerSlot,usedSlots,maxPizzas:store.settings.maxPizzas,currentCount:active.length,remaining:Math.max(0,store.settings.maxPizzas-active.length),audit:auditInfo(store.settings,active),capacity:capacityInfo(store.settings)});
+    return sendJson(res,200,{toppings:TOPPINGS.filter(i=>!unavailable.has(i)),oils:OILS.filter(i=>i==='None'||!unavailable.has(i)),specials:SPECIALS,unavailableSpecials:unavailableSpecials(store.settings),slots:allSlots(store.settings),serviceStart:store.settings.serviceStart,serviceEnd:store.settings.serviceEnd,pizzasPerSlot:store.settings.pizzasPerSlot,slotMinutes:store.settings.slotMinutes,usedSlots,maxPizzas:store.settings.maxPizzas,currentCount:active.length,remaining:Math.max(0,store.settings.maxPizzas-active.length),audit:auditInfo(store.settings,active),capacity:capacityInfo(store.settings)});
   }
   if(req.method==='GET'&&pathname==='/api/qr'){const configured=cleanText(process.env.PUBLIC_URL,300),origin=configured||`${req.headers['x-forwarded-proto']||'http'}://${req.headers.host}`,qr=u=>`https://api.qrserver.com/v1/create-qr-code/?size=900x900&ecc=H&data=${encodeURIComponent(u)}`,base=origin.replace(/\/+$/,''),auditUrl=`${base}/audit`;return sendJson(res,200,{url:origin,imageUrl:qr(origin),auditUrl,auditImageUrl:qr(auditUrl)});}
   if(req.method==='POST'&&pathname==='/api/orders'){
@@ -144,7 +144,7 @@ const server=http.createServer(async(req,res)=>{
       if(auditBooked.length&&(!next.auditEnabled||next.auditPizzas<auditBooked.length))throw new Error(`There are ${auditBooked.length} active audit team orders. Cancel them first, or keep at least that many audit pizzas.`);
       if(auditBooked.length&&next.auditBreakStart!==store.settings.auditBreakStart){for(const o of auditBooked){o.slot=next.auditBreakStart;o.updatedAt=new Date().toISOString();}}
       const staff=active.filter(o=>!o.audit),slotSet=new Set(allSlots(next)),outside=staff.filter(o=>!slotSet.has(o.slot));
-      if(outside.length)throw new Error(`${outside.length} staff order(s) are booked at ${[...new Set(outside.map(o=>o.slot))].sort().join(', ')}, outside ${next.serviceStart}–${next.serviceEnd}. Keep those times inside the collection window.`);
+      if(outside.length)throw new Error(`${outside.length} staff order(s) are booked at ${[...new Set(outside.map(o=>o.slot))].sort().join(', ')}, which would no longer be a collection time with these settings (${next.serviceStart}–${next.serviceEnd}, every ${next.slotMinutes} min). Cancel or rebook those orders first, or keep the old settings.`);
       const counts={};for(const o of staff)counts[o.slot]=(counts[o.slot]||0)+1;const busiest=Math.max(0,...Object.values(counts));
       if(busiest>next.pizzasPerSlot)throw new Error(`One time already has ${busiest} pizzas booked, so pizzas per slot cannot go below ${busiest}.`);
       const prep=auditPrepSlots(next),clash=active.filter(o=>!o.audit&&prep.has(o.slot));
