@@ -1,11 +1,11 @@
 const statuses=['Pending','Preparing','Ready','Collected','Cancelled'];
 const $=s=>document.querySelector(s);
-let pin=sessionStorage.getItem('glamfestAdminPin')||'',orders=[],settings={},ingredients=[],timer,lastOrdersSignature='';
+let pin=sessionStorage.getItem('glamfestAdminPin')||'',orders=[],settings={},audit={},ingredients=[],timer,lastOrdersSignature='';
 
 function escapeHtml(value){return String(value).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
 function show(el,text){el.textContent=text;el.classList.remove('hidden');}
 function hide(el){el.classList.add('hidden');}
-function ordersSignature(value){return JSON.stringify((value||[]).map(o=>[o.id,o.status,o.updatedAt,o.slot,o.customerName,o.pizzaName,o.base,o.oil,o.toppings]));}
+function ordersSignature(value){return JSON.stringify((value||[]).map(o=>[o.id,o.status,o.updatedAt,o.slot,o.customerName,o.pizzaName,o.audit,o.oil,o.toppings]));}
 
 async function request(url,options={}){
   const response=await fetch(url,{...options,cache:'no-store',headers:{...(options.headers||{}),'x-admin-pin':pin}});
@@ -18,7 +18,7 @@ function applyData(data,{force=false,preservePosition=true}={}){
   const nextOrders=data.orders||orders,nextSettings=data.settings||settings,nextIngredients=data.ingredients||ingredients;
   const nextSignature=ordersSignature(nextOrders),ordersChanged=force||nextSignature!==lastOrdersSignature;
   const settingsChanged=force||JSON.stringify(nextSettings)!==JSON.stringify(settings)||JSON.stringify(nextIngredients)!==JSON.stringify(ingredients);
-  orders=nextOrders;settings=nextSettings;ingredients=nextIngredients;
+  orders=nextOrders;settings=nextSettings;ingredients=nextIngredients;if(data.audit)audit=data.audit;
   if(settingsChanged)renderSettings();
   if(ordersChanged||settingsChanged){render({preservePosition});lastOrdersSignature=nextSignature;}
 }
@@ -39,19 +39,24 @@ function renderSettings(){
   if(!settings)return;
   const activeId=document.activeElement?.id;
   $('#maxPizzas').value=settings.maxPizzas;
-  $('#glutenFreeLimit').value=settings.glutenFreeLimit;
+  $('#auditEnabled').checked=Boolean(settings.auditEnabled);$('#auditBreakStart').value=settings.auditBreakStart||'';$('#auditBreakMinutes').value=settings.auditBreakMinutes;$('#auditPizzas').value=settings.auditPizzas;
+  renderAuditPlan();
   const unavailable=new Set(settings.unavailableIngredients||[]);
   $('#ingredientControls').innerHTML=ingredients.map(i=>`<label class="choice"><input type="checkbox" value="${escapeHtml(i)}" ${unavailable.has(i)?'':'checked'}><span>${escapeHtml(i)}</span></label>`).join('');
   if(activeId&&document.getElementById(activeId))document.getElementById(activeId).focus({preventScroll:true});
 }
 
+function renderAuditPlan(){
+  const a=audit||{};
+  $('#auditPlan').innerHTML=a.enabled?`<strong>${a.booked}/${a.reserved}</strong> audit pizzas booked · ready at <strong>${escapeHtml(a.breakStart)}</strong> (break ${escapeHtml(a.breakStart)}–${escapeHtml(a.breakEnd)})${a.prepFrom?` · staff slots ${escapeHtml(a.prepFrom)}–${escapeHtml(a.prepTo)} kept free for cooking`:''}`:'Audit link is closed.';
+}
 function render({preservePosition=true}={}){
   const scrollY=window.scrollY,focused=document.activeElement,focusKey=focused?.dataset?.order||focused?.id||'',focusStatus=focused?.dataset?.status||'';
   orders.sort((a,b)=>a.slot.localeCompare(b.slot)||a.orderNumber-b.orderNumber);
   const query=$('#search').value.trim().toLowerCase();
-  const filtered=orders.filter(o=>[o.customerName,o.pizzaName,o.base,o.slot,String(o.orderNumber),o.status,...o.toppings].join(' ').toLowerCase().includes(query));
-  const active=orders.filter(o=>o.status!=='Cancelled'),gf=active.filter(o=>o.base==='gluten-free').length;
-  $('#summary').innerHTML=`<div class="stat"><b>${active.length}/${settings.maxPizzas||0}</b><span>Active pizzas</span></div><div class="stat"><b>${gf}/${settings.glutenFreeLimit||0}</b><span>Gluten-free</span></div>`+statuses.map(s=>`<div class="stat"><b>${orders.filter(o=>o.status===s).length}</b><span>${s}</span></div>`).join('');
+  const filtered=orders.filter(o=>[o.customerName,o.pizzaName,o.audit?'audit':'staff',o.slot,String(o.orderNumber),o.status,...o.toppings].join(' ').toLowerCase().includes(query));
+  const active=orders.filter(o=>o.status!=='Cancelled'),auditActive=active.filter(o=>o.audit).length;renderAuditPlan();
+  $('#summary').innerHTML=`<div class="stat"><b>${active.length}/${settings.maxPizzas||0}</b><span>Active pizzas</span></div><div class="stat audit-stat"><b>${auditActive}/${settings.auditPizzas||0}</b><span>Audit team</span></div>`+statuses.map(s=>`<div class="stat"><b>${orders.filter(o=>o.status===s).length}</b><span>${s}</span></div>`).join('');
   $('#orders').innerHTML=filtered.length?filtered.map(orderCard).join(''):'<div class="order-card"><strong>No matching orders.</strong></div>';
   if(preservePosition){
     requestAnimationFrame(()=>{
@@ -65,15 +70,15 @@ function render({preservePosition=true}={}){
 }
 
 function orderCard(o){
-  const details=o.toppings.length?o.toppings.join(', '):'Cheese and tomato only',base=o.base==='gluten-free'?'Gluten-free base':'Standard base';
-  return `<article class="order-card ${o.status==='Cancelled'?'cancelled-order':''}" data-card-id="${escapeHtml(o.id)}"><div class="order-actions"><span class="time-order-label">TIME ORDER: ${escapeHtml(o.slot)}</span><button class="delete-order" data-delete-order="${escapeHtml(o.id)}" type="button">× Remove</button></div><div class="order-top"><div><div class="order-number">#${o.orderNumber} · ${escapeHtml(o.customerName)}</div><strong>${escapeHtml(o.pizzaName)}</strong></div><span class="slot-pill">${escapeHtml(o.slot)}</span></div><div class="order-meta"><strong>${base}</strong> · ${escapeHtml(details)}${o.oil!=='None'?` · ${escapeHtml(o.oil)}`:''}</div><div class="status-row">${statuses.map(s=>`<button class="status-button ${o.status===s?'active':''}" data-order="${escapeHtml(o.id)}" data-status="${s}" type="button">${s}</button>`).join('')}</div></article>`;
+  const details=o.toppings.length?o.toppings.join(', '):'Cheese and tomato only';
+  return `<article class="order-card ${o.status==='Cancelled'?'cancelled-order':''} ${o.audit?'audit-order':''}" data-card-id="${escapeHtml(o.id)}"><div class="order-actions"><span class="time-order-label ${o.audit?'audit-label':''}">${o.audit?'AUDIT TEAM · READY BY':'TIME ORDER:'} ${escapeHtml(o.slot)}</span><button class="delete-order" data-delete-order="${escapeHtml(o.id)}" type="button">× Remove</button></div><div class="order-top"><div><div class="order-number">#${o.orderNumber} · ${escapeHtml(o.customerName)}</div><strong>${escapeHtml(o.pizzaName)}</strong></div><span class="slot-pill">${escapeHtml(o.slot)}</span></div><div class="order-meta">${escapeHtml(details)}${o.oil!=='None'?` · ${escapeHtml(o.oil)}`:''}</div><div class="status-row">${statuses.map(s=>`<button class="status-button ${o.status===s?'active':''}" data-order="${escapeHtml(o.id)}" data-status="${s}" type="button">${s}</button>`).join('')}</div></article>`;
 }
 
 async function saveSettings(){
   const unavailable=[...document.querySelectorAll('#ingredientControls input:not(:checked)')].map(i=>i.value);
   try{
-    const data=await request('/api/admin/settings',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({maxPizzas:Number($('#maxPizzas').value),glutenFreeLimit:Number($('#glutenFreeLimit').value),unavailableIngredients:unavailable})});
-    settings=data.settings;renderSettings();render();
+    const data=await request('/api/admin/settings',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({maxPizzas:Number($('#maxPizzas').value),auditEnabled:$('#auditEnabled').checked,auditBreakStart:$('#auditBreakStart').value,auditBreakMinutes:Number($('#auditBreakMinutes').value),auditPizzas:Number($('#auditPizzas').value),unavailableIngredients:unavailable})});
+    settings=data.settings;await refresh(true);renderSettings();render();
     show($('#adminMessage'),'Kitchen availability saved. Customer options are updated immediately.');
   }catch(error){show($('#adminMessage'),error.message);}
 }
@@ -99,7 +104,7 @@ async function deleteOrder(id){
   catch(error){show($('#adminMessage'),error.message);}
 }
 
-async function loadQr(){try{const response=await fetch('/api/qr',{cache:'no-store'}),data=await response.json();$('#qrImage').src=data.imageUrl;$('#qrUrl').textContent=data.url;}catch{$('#qrUrl').textContent='QR unavailable';}}
+async function loadQr(){try{const response=await fetch('/api/qr',{cache:'no-store'}),data=await response.json();$('#qrImage').src=data.imageUrl;$('#qrUrl').textContent=data.url;$('#auditQrImage').src=data.auditImageUrl;$('#auditQrUrl').textContent=data.auditUrl;}catch{$('#qrUrl').textContent='QR unavailable';}}
 function startRefresh(){clearInterval(timer);timer=setInterval(()=>{if(!document.hidden&&!document.querySelector('.status-button:focus'))refresh(true);},15000);}
 
 // Delegated events remain active even when the order list is rebuilt.

@@ -7,10 +7,10 @@
   <title>Pizza &amp; Pop – ED Pizza Day</title>
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/enhancements.css">
-  <link rel="stylesheet" href="/pizzapop.css?v=1">
+  <link rel="stylesheet" href="/pizzapop.css?v=2">
 </head>
 <body>
-  <header class="hero"><div class="hero-inner"><div class="official-brand hero-brand" role="img" aria-label="Pizza and Pop: the ED chefs"></div><div class="date-pill">📅 Wednesday 4th November</div><h1>Order your <span>free</span> pizza</h1><p>A thank you to our amazing ED team: free pizza and a soft drink. Choose a special or build your own, then reserve a collection time.</p><div class="staff-only"><strong>For ED staff only</strong><span>Doctors • Nurses • Domestic • Clerical staff</span></div><div class="badges"><span>🍕 Freshly made</span><span>🥤 Pop included</span><span>⏱️ One pizza every 2 minutes</span><span id="remainingBadge">Loading availability…</span><span id="gfBadge">Loading gluten-free bases…</span></div></div></header>
+  <header class="hero"><div class="hero-inner"><div class="official-brand hero-brand" role="img" aria-label="Pizza and Pop: the ED chefs"></div><div class="date-pill">📅 Wednesday 4th November</div><h1 id="heroTitle">Order your <span>free</span> pizza</h1><p>A thank you to our amazing ED team: free pizza and a soft drink. Choose a special or build your own, then reserve a collection time.</p><div class="staff-only" id="whoFor"><strong>For ED staff only</strong><span>Doctors • Nurses • Domestic • Clerical staff</span></div><div class="badges"><span>🍕 Freshly made</span><span>🥤 Pop included</span><span>⏱️ One pizza every 2 minutes</span><span id="remainingBadge">Loading availability…</span></div></div></header>
   <main class="container">
     <form id="orderForm" novalidate>
       <section class="step-card"><div class="step-number">1</div><div class="step-content"><h2>Who is collecting?</h2><label for="customerName">Collector name</label><input id="customerName" name="customerName" maxlength="60" autocomplete="name" placeholder="Enter your name" required></div></section>
@@ -20,15 +20,15 @@
         <button type="button" class="pizza-card" data-special="triage"><span class="pizza-icon">🫑</span><strong>Triage Pizza</strong><small>Mushrooms, red onion, yellow pepper and green pepper</small></button>
         <button type="button" class="pizza-card" data-special="custom"><span class="pizza-icon">✨</span><strong>Build Your Own</strong><small>Choose up to four toppings and a finishing drizzle</small></button>
       </div><div id="customBuilder" class="builder hidden"><h3>Choose up to 4 toppings</h3><p class="muted"><span id="toppingCount">0</span>/4 selected</p><div id="toppings" class="choice-grid"></div><h3>Finishing drizzle</h3><div id="oils" class="choice-grid compact"></div></div></div></section>
-      <section class="step-card"><div class="step-number">3</div><div class="step-content"><h2>Choose your pizza base</h2><div id="bases" class="choice-grid compact"></div><p id="baseHelp" class="muted">Gluten-free bases are limited.</p></div></section>
-      <section class="step-card"><div class="step-number">4</div><div class="step-content"><h2>Choose a collection time</h2><label for="slot">Available slots</label><select id="slot" name="slot" required><option value="">Loading times…</option></select><p class="muted">Collection runs from 12:00 to 14:30. Each slot can only be booked once.</p></div></section>
-      <section class="step-card review-card"><div class="step-number">5</div><div class="step-content"><h2>Review your order</h2><div id="review" class="review"><p>Choose your pizza to see the order summary.</p></div><label class="confirm"><input id="confirm" type="checkbox" required> I have checked the name, pizza, base and collection time.</label></div></section>
+      
+      <section class="step-card"><div class="step-number">3</div><div class="step-content"><h2 id="slotTitle">Choose a collection time</h2><div id="staffSlot"><label for="slot">Available slots</label><select id="slot" name="slot" required><option value="">Loading times…</option></select><p class="muted">Collection runs from 12:00 to 14:30. Each slot can only be booked once.</p></div><div id="auditSlot" class="audit-slot hidden"><div class="audit-time" id="auditTime">--:--</div><p id="auditSlotText">Your pizza will be ready for the start of your break.</p></div></div></section>
+      <section class="step-card review-card"><div class="step-number">4</div><div class="step-content"><h2>Review your order</h2><div id="review" class="review"><p>Choose your pizza to see the order summary.</p></div><label class="confirm"><input id="confirm" type="checkbox" required> I have checked the name, pizza and collection time.</label></div></section>
       <div id="message" class="message hidden" role="alert"></div><div class="sticky-submit"><button id="submitButton" class="primary" type="submit">Reserve my pizza</button></div>
     </form>
     <section id="success" class="success hidden" aria-live="polite"><div class="official-brand success-brand"></div><div class="success-icon">✓</div><h2>Your pizza is booked!</h2><p class="pop-note">Pick up your soft drink when you collect. Grazie, ED team!</p><div id="successDetails"></div><button id="anotherOrder" class="secondary" type="button">Order another pizza</button></section>
   </main>
   <footer><div class="footer-cols"><div><span class="footer-kicker">Funded by</span><strong>Doctor Mo &amp; the Wellbeing Team</strong></div><div><span class="footer-kicker">❤️ We accept donations</span><strong>to help us grow future wellbeing activities for our ED team</strong></div></div><a class="kitchen-admin-link" href="/admin">Kitchen Admin</a></footer>
-  <script src="/app.js" defer></script>
+  <script src="/app.js?v=2" defer></script>
   <script src="/ingredient-images.js?v=1" defer></script>
 </body>
 </html>

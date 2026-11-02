@@ -11,13 +11,14 @@ const ADMIN_PIN = String(process.env.ADMIN_PIN || '222');
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'orders.json');
 const DEFAULT_MAX_PIZZAS = 80;
-const DEFAULT_GLUTEN_FREE_LIMIT = 4;
 const START_MINUTES = 12 * 60;
 const END_MINUTES = 14 * 60 + 30;
 const SLOT_INTERVAL = 2;
+// Audit team: their pizzas are all ready together at the start of their break.
+// The kitchen cooking time just before the break (one pizza per slot) is kept free of staff bookings.
+const DEFAULT_AUDIT = {auditEnabled:true,auditBreakStart:'13:00',auditBreakMinutes:40,auditPizzas:15};
 const TOPPINGS = ['Pepperoni','Ham','Mushrooms','Red onion','Red pepper','Yellow pepper','Green pepper','Black olives','Pineapple','Jalapeños','Chillies','Fresh basil'];
 const OILS = ['None','Garlic oil','Chilli oil'];
-const BASES = [{key:'standard',name:'Standard base'},{key:'gluten-free',name:'Gluten-free base'}];
 const SPECIALS = {
   resus:{name:'Resus Pizza',toppings:['Pepperoni','Jalapeños','Chillies'],oil:'Chilli oil'},
   paeds:{name:'Paeds Pizza',toppings:['Ham','Pineapple'],oil:'None'},
@@ -25,16 +26,33 @@ const SPECIALS = {
 };
 let writeQueue=Promise.resolve();
 function cleanText(value,max=80){return String(value??'').trim().replace(/\s+/g,' ').slice(0,max);}
-function allSlots(){const slots=[];for(let m=START_MINUTES;m<=END_MINUTES;m+=SLOT_INTERVAL){slots.push(`${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`);}return slots;}
+function toMinutes(hhmm){const m=/^(\d{1,2}):(\d{2})$/.exec(String(hhmm||''));if(!m)return NaN;const h=Number(m[1]),min=Number(m[2]);return h<24&&min<60?h*60+min:NaN;}
+function toHHMM(minutes){return `${String(Math.floor(minutes/60)).padStart(2,'0')}:${String(minutes%60).padStart(2,'0')}`;}
+function allSlots(){const slots=[];for(let m=START_MINUTES;m<=END_MINUTES;m+=SLOT_INTERVAL)slots.push(toHHMM(m));return slots;}
 const VALID_SLOTS=new Set(allSlots());
-function defaultSettings(){return{maxPizzas:DEFAULT_MAX_PIZZAS,glutenFreeLimit:DEFAULT_GLUTEN_FREE_LIMIT,unavailableIngredients:[]};}
+function defaultSettings(){return{maxPizzas:DEFAULT_MAX_PIZZAS,unavailableIngredients:[],...DEFAULT_AUDIT};}
+function clampInt(value,min,max,fallback){const n=Number.parseInt(value,10);return Number.isFinite(n)?Math.max(min,Math.min(max,n)):fallback;}
 function normaliseSettings(value={}){
-  const maxPizzas=Math.max(1,Math.min(allSlots().length,Number.parseInt(value.maxPizzas,10)||DEFAULT_MAX_PIZZAS));
-  const rawGf=Number.parseInt(value.glutenFreeLimit,10);
-  const glutenFreeLimit=Math.max(0,Math.min(maxPizzas,Number.isFinite(rawGf)?rawGf:DEFAULT_GLUTEN_FREE_LIMIT));
+  const maxPizzas=clampInt(value.maxPizzas,1,200,DEFAULT_MAX_PIZZAS);
   const valid=new Set([...TOPPINGS,...OILS.filter(o=>o!=='None')]);
   const unavailableIngredients=Array.isArray(value.unavailableIngredients)?[...new Set(value.unavailableIngredients.map(v=>cleanText(v,30)).filter(v=>valid.has(v)))]:[];
-  return{maxPizzas,glutenFreeLimit,unavailableIngredients};
+  const auditEnabled=value.auditEnabled===undefined?DEFAULT_AUDIT.auditEnabled:Boolean(value.auditEnabled);
+  let start=toMinutes(cleanText(value.auditBreakStart,5));
+  if(!Number.isFinite(start)||start<6*60||start>22*60)start=toMinutes(DEFAULT_AUDIT.auditBreakStart);
+  start=Math.round(start/SLOT_INTERVAL)*SLOT_INTERVAL;
+  const auditBreakMinutes=clampInt(value.auditBreakMinutes,10,120,DEFAULT_AUDIT.auditBreakMinutes);
+  const auditPizzas=clampInt(value.auditPizzas,0,80,DEFAULT_AUDIT.auditPizzas);
+  return{maxPizzas,unavailableIngredients,auditEnabled,auditBreakStart:toHHMM(start),auditBreakMinutes,auditPizzas};
+}
+// Staff slots kept free so the kitchen can cook the audit pizzas before their break starts.
+function auditPrepSlots(settings){
+  if(!settings.auditEnabled||!settings.auditPizzas)return new Set();
+  const start=toMinutes(settings.auditBreakStart),from=start-settings.auditPizzas*SLOT_INTERVAL;
+  return new Set(allSlots().filter(s=>{const m=toMinutes(s);return m>=from&&m<start;}));
+}
+function auditInfo(settings,active){
+  const start=toMinutes(settings.auditBreakStart),prep=[...auditPrepSlots(settings)].sort(),booked=active.filter(o=>o.audit).length;
+  return{enabled:settings.auditEnabled,breakStart:settings.auditBreakStart,breakEnd:toHHMM(start+settings.auditBreakMinutes),breakMinutes:settings.auditBreakMinutes,reserved:settings.auditPizzas,booked,remaining:Math.max(0,settings.auditPizzas-booked),prepFrom:prep[0]||'',prepTo:prep.length?toHHMM(toMinutes(prep[prep.length-1])+SLOT_INTERVAL):''};
 }
 // Storage: Postgres when DATABASE_URL is set (free hosting has no persistent disk), otherwise a local JSON file.
 const DATABASE_URL=process.env.DATABASE_URL||'';
@@ -69,18 +87,30 @@ function mutateStore(mutator){const run=writeQueue.then(()=>runMutation(mutator)
 function activeOrders(store){return store.orders.filter(o=>o.status!=='Cancelled');}
 function unavailableSpecials(settings){const unavailable=new Set(settings.unavailableIngredients);return Object.fromEntries(Object.entries(SPECIALS).map(([key,s])=>[key,[...s.toppings,s.oil].some(i=>i!=='None'&&unavailable.has(i))]));}
 function normaliseOrder(body,settings){
-  const customerName=cleanText(body.customerName,60),specialKey=cleanText(body.specialKey,20).toLowerCase(),base=cleanText(body.base,20)||'standard';
+  const customerName=cleanText(body.customerName,60),specialKey=cleanText(body.specialKey,20).toLowerCase(),audit=body.group==='audit';
   let toppings=Array.isArray(body.toppings)?body.toppings.map(v=>cleanText(v,30)):[],oil=cleanText(body.oil,20)||'None',pizzaName='Build Your Own';
   if(specialKey&&SPECIALS[specialKey]){const s=SPECIALS[specialKey];pizzaName=s.name;toppings=[...s.toppings];oil=s.oil;}
   toppings=[...new Set(toppings)].filter(t=>TOPPINGS.includes(t));
   if(toppings.length>4)throw new Error('Choose a maximum of 4 toppings.');
   if(!OILS.includes(oil))throw new Error('Choose a valid finishing oil.');
-  if(!BASES.some(item=>item.key===base))throw new Error('Choose a valid pizza base.');
   const unavailable=new Set(settings.unavailableIngredients);const unavailableUsed=[...toppings,oil].filter(i=>i!=='None'&&unavailable.has(i));
   if(unavailableUsed.length)throw new Error(`${unavailableUsed[0]} is no longer available. Please choose another option.`);
-  const slot=cleanText(body.slot,5);if(!VALID_SLOTS.has(slot))throw new Error('Choose an available collection time between 12:00 and 14:30.');
   if(!customerName)throw new Error('Enter the name of the person collecting the pizza.');
-  return{customerName,pizzaName,specialKey:SPECIALS[specialKey]?specialKey:'',base,toppings,oil,slot};
+  let slot;
+  if(audit){if(!settings.auditEnabled)throw new Error('Audit team ordering is closed. Please choose a staff collection time.');slot=settings.auditBreakStart;}
+  else{slot=cleanText(body.slot,5);if(!VALID_SLOTS.has(slot))throw new Error('Choose an available collection time between 12:00 and 14:30.');}
+  return{customerName,pizzaName,specialKey:SPECIALS[specialKey]?specialKey:'',base:'standard',toppings,oil,slot,audit};
+}
+// Checks that an order (new or reopened) still fits. `active` must not include the order itself.
+function assertFits(order,active,settings){
+  if(active.length>=settings.maxPizzas)throw new Error(`All ${settings.maxPizzas} pizzas have now been reserved.`);
+  if(order.audit){
+    if(!settings.auditEnabled)throw new Error('Audit team ordering is closed.');
+    if(active.filter(o=>o.audit).length>=settings.auditPizzas)throw new Error(`All ${settings.auditPizzas} audit team pizzas have been reserved.`);
+    return;
+  }
+  if(auditPrepSlots(settings).has(order.slot))throw new Error('That time is kept free for the audit team pizzas. Please choose another slot.');
+  if(active.some(o=>!o.audit&&o.slot===order.slot))throw new Error('That time has just been taken. Please choose another slot.');
 }
 const MIME={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.svg':'image/svg+xml','.json':'application/json; charset=utf-8'};
 function sendJson(res,status,value){const body=JSON.stringify(value);res.writeHead(status,{'content-type':MIME['.json'],'content-length':Buffer.byteLength(body),'cache-control':'no-store'});res.end(body);}
@@ -88,29 +118,39 @@ function sendFile(res,filename){fs.readFile(filename).then(data=>{res.writeHead(
 async function bodyJson(req){const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>100_000)throw new Error('Request is too large.');chunks.push(chunk);}return chunks.length?JSON.parse(Buffer.concat(chunks).toString('utf8')):{};}
 function isAdmin(req,url){return String(req.headers['x-admin-pin']||url.searchParams.get('pin')||'')===ADMIN_PIN;}
 
+
 const server=http.createServer(async(req,res)=>{
  try{
   const url=new URL(req.url,`http://${req.headers.host||'localhost'}`),pathname=decodeURIComponent(url.pathname);
   if(req.method==='GET'&&pathname==='/api/config'){
-    const store=await readStore(),active=activeOrders(store),glutenFreeUsed=active.filter(o=>o.base==='gluten-free').length,unavailable=new Set(store.settings.unavailableIngredients);
-    return sendJson(res,200,{toppings:TOPPINGS.filter(i=>!unavailable.has(i)),oils:OILS.filter(i=>i==='None'||!unavailable.has(i)),allIngredients:[...TOPPINGS,...OILS.filter(o=>o!=='None')],unavailableIngredients:store.settings.unavailableIngredients,specials:SPECIALS,unavailableSpecials:unavailableSpecials(store.settings),bases:BASES,slots:allSlots(),usedSlots:active.map(o=>o.slot),maxPizzas:store.settings.maxPizzas,currentCount:active.length,remaining:Math.max(0,store.settings.maxPizzas-active.length),glutenFreeLimit:store.settings.glutenFreeLimit,glutenFreeUsed,glutenFreeRemaining:Math.max(0,store.settings.glutenFreeLimit-glutenFreeUsed),effectiveCapacity:Math.min(allSlots().length,store.settings.maxPizzas)});
+    const store=await readStore(),active=activeOrders(store),unavailable=new Set(store.settings.unavailableIngredients),prep=auditPrepSlots(store.settings);
+    const usedSlots=[...new Set([...active.filter(o=>!o.audit).map(o=>o.slot),...prep])];
+    return sendJson(res,200,{toppings:TOPPINGS.filter(i=>!unavailable.has(i)),oils:OILS.filter(i=>i==='None'||!unavailable.has(i)),specials:SPECIALS,unavailableSpecials:unavailableSpecials(store.settings),slots:allSlots(),usedSlots,maxPizzas:store.settings.maxPizzas,currentCount:active.length,remaining:Math.max(0,store.settings.maxPizzas-active.length),audit:auditInfo(store.settings,active)});
   }
-  if(req.method==='GET'&&pathname==='/api/qr'){const configured=cleanText(process.env.PUBLIC_URL,300),origin=configured||`${req.headers['x-forwarded-proto']||'http'}://${req.headers.host}`,imageUrl=`https://api.qrserver.com/v1/create-qr-code/?size=900x900&ecc=H&data=${encodeURIComponent(origin)}`;return sendJson(res,200,{url:origin,imageUrl});}
+  if(req.method==='GET'&&pathname==='/api/qr'){const configured=cleanText(process.env.PUBLIC_URL,300),origin=configured||`${req.headers['x-forwarded-proto']||'http'}://${req.headers.host}`,qr=u=>`https://api.qrserver.com/v1/create-qr-code/?size=900x900&ecc=H&data=${encodeURIComponent(u)}`,base=origin.replace(/\/+$/,''),auditUrl=`${base}/audit`;return sendJson(res,200,{url:origin,imageUrl:qr(origin),auditUrl,auditImageUrl:qr(auditUrl)});}
   if(req.method==='POST'&&pathname==='/api/orders'){
-    try{const payload=await bodyJson(req);const order=await mutateStore(store=>{const input=normaliseOrder(payload,store.settings),active=activeOrders(store);if(active.length>=store.settings.maxPizzas)throw new Error(`All ${store.settings.maxPizzas} pizzas have now been reserved.`);if(input.base==='gluten-free'&&active.filter(o=>o.base==='gluten-free').length>=store.settings.glutenFreeLimit)throw new Error('All gluten-free pizza bases have now been reserved.');if(active.some(o=>o.slot===input.slot))throw new Error('That time has just been taken. Please choose another slot.');const created={id:crypto.randomUUID(),orderNumber:store.orders.reduce((m,o)=>Math.max(m,Number(o.orderNumber)||0),0)+1,...input,status:'Pending',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};store.orders.push(created);return created;});return sendJson(res,201,{order});}catch(error){return sendJson(res,400,{error:error.message||'Unable to place the order.'});}
+    try{const payload=await bodyJson(req);const order=await mutateStore(store=>{const input=normaliseOrder(payload,store.settings);assertFits(input,activeOrders(store),store.settings);const now=new Date().toISOString();const created={id:crypto.randomUUID(),orderNumber:store.orders.reduce((m,o)=>Math.max(m,Number(o.orderNumber)||0),0)+1,...input,status:'Pending',createdAt:now,updatedAt:now};store.orders.push(created);return created;});return sendJson(res,201,{order,audit:order.audit?auditInfo((await readStore()).settings,[]):undefined});}catch(error){return sendJson(res,400,{error:error.message||'Unable to place the order.'});}
   }
-  if(pathname==='/api/admin/orders'&&req.method==='GET'){if(!isAdmin(req,url))return sendJson(res,401,{error:'Incorrect admin PIN.'});const store=await readStore();return sendJson(res,200,{orders:[...store.orders].sort((a,b)=>a.slot.localeCompare(b.slot)||a.orderNumber-b.orderNumber),settings:store.settings,ingredients:[...TOPPINGS,...OILS.filter(o=>o!=='None')]});}
+  if(pathname==='/api/admin/orders'&&req.method==='GET'){if(!isAdmin(req,url))return sendJson(res,401,{error:'Incorrect admin PIN.'});const store=await readStore(),active=activeOrders(store);return sendJson(res,200,{orders:[...store.orders].sort((a,b)=>a.slot.localeCompare(b.slot)||Number(Boolean(b.audit))-Number(Boolean(a.audit))||a.orderNumber-b.orderNumber),settings:store.settings,audit:auditInfo(store.settings,active),ingredients:[...TOPPINGS,...OILS.filter(o=>o!=='None')]});}
   if(pathname==='/api/admin/settings'&&req.method==='PATCH'){
     if(!isAdmin(req,url))return sendJson(res,401,{error:'Incorrect admin PIN.'});
-    try{const payload=await bodyJson(req);const settings=await mutateStore(store=>{const active=activeOrders(store),next=normaliseSettings({...store.settings,...payload});if(next.maxPizzas<active.length)throw new Error(`Capacity cannot be below the ${active.length} active orders already booked.`);const gfUsed=active.filter(o=>o.base==='gluten-free').length;if(next.glutenFreeLimit<gfUsed)throw new Error(`Gluten-free limit cannot be below the ${gfUsed} active gluten-free orders already booked.`);store.settings=next;return next;});return sendJson(res,200,{settings});}catch(error){return sendJson(res,400,{error:error.message});}
+    try{const payload=await bodyJson(req);const settings=await mutateStore(store=>{const active=activeOrders(store),next=normaliseSettings({...store.settings,...payload});
+      if(next.maxPizzas<active.length)throw new Error(`Capacity cannot be below the ${active.length} active orders already booked.`);
+      const auditBooked=active.filter(o=>o.audit);
+      if(auditBooked.length&&(!next.auditEnabled||next.auditPizzas<auditBooked.length))throw new Error(`There are ${auditBooked.length} active audit team orders. Cancel them first, or keep at least that many audit pizzas.`);
+      if(auditBooked.length&&next.auditBreakStart!==store.settings.auditBreakStart){for(const o of auditBooked){o.slot=next.auditBreakStart;o.updatedAt=new Date().toISOString();}}
+      const prep=auditPrepSlots(next),clash=active.filter(o=>!o.audit&&prep.has(o.slot));
+      if(clash.length)throw new Error(`The audit cooking time (${[...prep].sort()[0]}–${next.auditBreakStart}) would overlap ${clash.length} staff order(s) already booked at ${[...new Set(clash.map(o=>o.slot))].sort().join(', ')}. Move or cancel those first, or change the break time.`);
+      store.settings=next;return next;});return sendJson(res,200,{settings});}catch(error){return sendJson(res,400,{error:error.message});}
   }
   const adminMatch=pathname.match(/^\/api\/admin\/orders\/([^/]+)$/);
   if(adminMatch&&req.method==='PATCH'){
     if(!isAdmin(req,url))return sendJson(res,401,{error:'Incorrect admin PIN.'});const allowed=new Set(['Pending','Preparing','Ready','Collected','Cancelled']),payload=await bodyJson(req),status=cleanText(payload.status,20);if(!allowed.has(status))return sendJson(res,400,{error:'Invalid status.'});
-    try{const order=await mutateStore(store=>{const found=store.orders.find(o=>o.id===adminMatch[1]);if(!found)throw new Error('Order not found.');if(status!=='Cancelled'&&found.status==='Cancelled'){const active=activeOrders(store).filter(o=>o.id!==found.id);if(active.length>=store.settings.maxPizzas)throw new Error('The pizza capacity has been reached.');if(found.base==='gluten-free'&&active.filter(o=>o.base==='gluten-free').length>=store.settings.glutenFreeLimit)throw new Error('The gluten-free base limit has been reached.');if(active.some(o=>o.slot===found.slot))throw new Error('That collection slot is now occupied.');}found.status=status;found.updatedAt=new Date().toISOString();return found;});return sendJson(res,200,{order});}catch(error){return sendJson(res,400,{error:error.message});}
+    try{const order=await mutateStore(store=>{const found=store.orders.find(o=>o.id===adminMatch[1]);if(!found)throw new Error('Order not found.');if(status!=='Cancelled'&&found.status==='Cancelled'){if(found.audit)found.slot=store.settings.auditBreakStart;assertFits(found,activeOrders(store).filter(o=>o.id!==found.id),store.settings);}found.status=status;found.updatedAt=new Date().toISOString();return found;});return sendJson(res,200,{order});}catch(error){return sendJson(res,400,{error:error.message});}
   }
   if(adminMatch&&req.method==='DELETE'){if(!isAdmin(req,url))return sendJson(res,401,{error:'Incorrect admin PIN.'});try{const deleted=await mutateStore(store=>{const index=store.orders.findIndex(o=>o.id===adminMatch[1]);if(index<0)throw new Error('Order not found.');return store.orders.splice(index,1)[0];});return sendJson(res,200,{deleted});}catch(error){return sendJson(res,400,{error:error.message});}}
   if(req.method!=='GET')return sendJson(res,405,{error:'Method not allowed.'});
+  if(pathname==='/audit'||pathname==='/audit/')return sendFile(res,path.join(__dirname,'public','index.html'));
   if(pathname==='/admin')return sendFile(res,path.join(__dirname,'public','admin.html'));
   const safePath=path.normalize(pathname).replace(/^(\.\.[/\\])+/,''),publicFile=path.join(__dirname,'public',safePath==='/'?'index.html':safePath);
   if(!publicFile.startsWith(path.join(__dirname,'public')))return sendJson(res,403,{error:'Forbidden.'});

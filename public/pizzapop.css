@@ -68,3 +68,16 @@ footer{background:var(--navy);color:#fff;border-top:6px solid var(--pop-red);pad
 .login-visual{background:linear-gradient(160deg,var(--navy),var(--navy2))!important;color:#fff}
 .login-visual p{color:#fff}
 .login-visual .official-brand{border-color:#fff}
+
+/* Audit team link and kitchen controls */
+.audit-slot{text-align:center;border:3px dashed var(--it-green);border-radius:18px;padding:16px;background:#f2faf3}
+.audit-time{font-family:Georgia,"Times New Roman",serif;font-size:2.6rem;font-weight:900;color:var(--it-green);line-height:1}
+.audit-slot p{margin:8px 0 0;color:var(--navy);font-weight:700}
+.audit-mode .staff-only{border-color:var(--it-green)}
+.audit-mode .step-number{background:var(--it-green)}
+.audit-plan{background:#f2faf3;border:2px solid var(--it-green);border-radius:12px;padding:10px 12px;color:var(--navy);margin:10px 0 0}
+.audit-settings input[type=time],.audit-settings input[type=number],#maxPizzas{width:100%;min-height:44px;border:2px solid #bdb29f;border-radius:11px;padding:8px 10px;font:inherit}
+.audit-order{border-color:var(--it-green);border-width:3px}
+.audit-label{background:#e3f4e6!important;border-color:var(--it-green)!important;color:#1f6b2d}
+.audit-stat{border-color:var(--it-green)}
+.audit-qr-title{margin-top:18px;color:var(--it-green)}
