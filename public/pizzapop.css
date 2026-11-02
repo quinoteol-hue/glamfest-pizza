@@ -114,3 +114,15 @@ footer .donate-note{color:#dfe5f3}
 #toppings .topping-name{font-size:1rem;line-height:1.25;font-weight:800;color:var(--navy)}
 #toppings .choice input{flex:0 0 auto}
 @media(max-width:480px){#toppings .choice{gap:8px;padding:8px;min-height:68px}#toppings .topping-picture{width:42px;height:42px;flex-basis:42px}#toppings .topping-name{font-size:.92rem}}
+
+/* Live kitchen plan */
+.capacity-plan .plan-total{font-size:1.25rem;color:var(--navy);margin:8px 0 4px}
+.capacity-plan .plan-total strong{font-size:1.8rem;color:var(--pop-red)}
+.plan-list{margin:4px 0 0;padding-left:18px}
+.plan-list li{margin:3px 0}
+.plan-warn{color:var(--pop-red);font-weight:800}
+.plan-note{color:var(--muted)}
+.plan-error{color:var(--pop-red);font-weight:800;margin:8px 0 0}
+.unsaved-badge,.saved-badge{display:inline-block;font-size:.78rem;font-weight:900;border-radius:999px;padding:4px 10px}
+.unsaved-badge{background:#fff1d6;color:#8a5200;border:2px solid #e0a23a}
+.saved-badge{background:#e3f4e6;color:#1f6b2d;border:2px solid var(--it-green)}
