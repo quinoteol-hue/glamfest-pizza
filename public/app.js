@@ -1,4 +1,4 @@
-const icons={Pepperoni:'🍕',Ham:'🥓',Mushrooms:'🍄','Red onion':'🧅','Yellow pepper':'🟡','Green pepper':'🫑','Black olives':'🫒',Pineapple:'🍍',Jalapeños:'🌶️',Chillies:'🔥','Garlic oil':'🧄','Chilli oil':'🌶️',None:'➖'};
+const icons={Pepperoni:'🍕',Ham:'🥓',Mushrooms:'🍄','Red onion':'🧅','Yellow pepper':'🟡','Green pepper':'🫑','Black olives':'🫒',Pineapple:'🍍',Jalapeños:'🌶️',Chillies:'🔥',None:'➖'};
 const AUDIT_MODE=/^\/audit\/?$/.test(location.pathname);
 const state={config:null,specialKey:'',toppings:[],oil:'None'};
 const $=s=>document.querySelector(s);
@@ -26,8 +26,7 @@ async function loadConfig({preserveSelection=true}={}){
 
 function renderChoices(){
   $('#toppings').innerHTML=state.config.toppings.map(t=>`<label class="choice"><input type="checkbox" value="${escapeHtml(t)}" ${state.toppings.includes(t)?'checked':''}><span>${icons[t]||'•'}</span><span>${escapeHtml(t)}</span></label>`).join('')||'<p class="muted">No toppings currently available.</p>';
-  if(!state.config.oils.includes(state.oil))state.oil='None';
-  $('#oils').innerHTML=state.config.oils.map(o=>`<label class="choice"><input type="radio" name="oil" value="${escapeHtml(o)}" ${o===state.oil?'checked':''}><span>${icons[o]||'•'}</span><span>${escapeHtml(o)}</span></label>`).join('');
+  state.oil='None';
   $('#toppingCount').textContent=state.toppings.length;
   document.querySelectorAll('.pizza-card').forEach(button=>{
     const unavailable=button.dataset.special!=='custom'&&state.config.unavailableSpecials?.[button.dataset.special];
@@ -81,7 +80,7 @@ function choosePizza(key){
   hideMessage();updateReview();
 }
 function selection(){if(state.specialKey){const s=state.config.specials[state.specialKey];return{name:s.name,toppings:s.toppings,oil:s.oil};}return{name:'Build Your Own',toppings:state.toppings,oil:state.oil};}
-function updateReview(){if(!state.config)return;const name=$('#customerName').value.trim()||'Not entered',slot=AUDIT_MODE?`${state.config.audit?.breakStart||''} (audit break)`:($('#slot').value||'Not selected'),selected=document.querySelector('.pizza-card.selected');if(!selected){$('#review').innerHTML='<p>Choose your pizza to see the order summary.</p>';return;}const pizza=selection(),toppingText=pizza.toppings.length?pizza.toppings.join(', '):'Cheese and tomato only';$('#review').innerHTML=`<div class="review-row"><b>Collector</b><span>${escapeHtml(name)}</span></div><div class="review-row"><b>Pizza</b><span>${escapeHtml(pizza.name)}</span></div><div class="review-row"><b>Toppings</b><span>${escapeHtml(toppingText)}</span></div><div class="review-row"><b>Drizzle</b><span>${escapeHtml(pizza.oil)}</span></div><div class="review-row"><b>Collection</b><span>${escapeHtml(slot)}</span></div>`;}
+function updateReview(){if(!state.config)return;const name=$('#customerName').value.trim()||'Not entered',slot=AUDIT_MODE?`${state.config.audit?.breakStart||''} (audit break)`:($('#slot').value||'Not selected'),selected=document.querySelector('.pizza-card.selected');if(!selected){$('#review').innerHTML='<p>Choose your pizza to see the order summary.</p>';return;}const pizza=selection(),toppingText=pizza.toppings.length?pizza.toppings.join(', '):'Cheese and tomato only';$('#review').innerHTML=`<div class="review-row"><b>Collector</b><span>${escapeHtml(name)}</span></div><div class="review-row"><b>Pizza</b><span>${escapeHtml(pizza.name)}</span></div><div class="review-row"><b>Toppings</b><span>${escapeHtml(toppingText)}</span></div><div class="review-row"><b>Collection</b><span>${escapeHtml(slot)}</span></div>`;}
 
 function showOrderForm({scroll=true}={}){
   success.classList.add('hidden');
@@ -100,7 +99,6 @@ function resetForm(){
 // Event delegation keeps controls working after choices are re-rendered.
 document.addEventListener('change',event=>{
   if(event.target.matches('#toppings input')){const checked=[...document.querySelectorAll('#toppings input:checked')];if(checked.length>4){event.target.checked=false;showMessage('Choose a maximum of four toppings.');return;}state.toppings=checked.map(i=>i.value);$('#toppingCount').textContent=state.toppings.length;hideMessage();updateReview();}
-  if(event.target.matches('#oils input')){state.oil=event.target.value;updateReview();}
 });
 document.querySelectorAll('.pizza-card').forEach(button=>button.addEventListener('click',()=>choosePizza(button.dataset.special)));
 ['customerName','slot'].forEach(id=>$('#'+id).addEventListener('input',updateReview));
