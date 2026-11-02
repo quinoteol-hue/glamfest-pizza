@@ -25,7 +25,7 @@ async function loadConfig({preserveSelection=true}={}){
 }
 
 function renderChoices(){
-  $('#toppings').innerHTML=state.config.toppings.map(t=>`<label class="choice"><input type="checkbox" value="${escapeHtml(t)}" ${state.toppings.includes(t)?'checked':''}><span>${icons[t]||'•'}</span><span>${escapeHtml(t)}</span></label>`).join('')||'<p class="muted">No toppings currently available.</p>';
+  $('#toppings').innerHTML=state.config.toppings.map(t=>`<label class="choice"><input type="checkbox" value="${escapeHtml(t)}" ${state.toppings.includes(t)?'checked':''}><span>${escapeHtml(t)}</span></label>`).join('')||'<p class="muted">No toppings currently available.</p>';
   state.oil='None';
   $('#toppingCount').textContent=state.toppings.length;
   document.querySelectorAll('.pizza-card').forEach(button=>{
