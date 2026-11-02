@@ -3,13 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#f6c945">
-  <title>Glamfest Pizza Orders</title>
+  <meta name="theme-color" content="#1d2f5c">
+  <title>Pizza &amp; Pop – ED Pizza Day</title>
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/enhancements.css">
+  <link rel="stylesheet" href="/pizzapop.css?v=1">
 </head>
 <body>
-  <header class="hero"><div class="hero-inner"><div class="official-brand hero-brand" role="img" aria-label="Glamfest Family Fun Day"></div><span class="eyebrow">GLAMFEST FOOD TENT</span><h1>Order your pizza</h1><p>Choose a special or build your own, then reserve a collection time.</p><div class="badges"><span>🍕 Freshly made</span><span>⏱️ One pizza every 2 minutes</span><span id="remainingBadge">Loading availability…</span><span id="gfBadge">Loading gluten-free bases…</span></div></div></header>
+  <header class="hero"><div class="hero-inner"><div class="official-brand hero-brand" role="img" aria-label="Pizza and Pop: the ED chefs"></div><div class="date-pill">📅 Wednesday 4th November</div><h1>Order your <span>free</span> pizza</h1><p>A thank you to our amazing ED team: free pizza and a soft drink. Choose a special or build your own, then reserve a collection time.</p><div class="staff-only"><strong>For ED staff only</strong><span>Doctors • Nurses • Domestic • Clerical staff</span></div><div class="badges"><span>🍕 Freshly made</span><span>🥤 Pop included</span><span>⏱️ One pizza every 2 minutes</span><span id="remainingBadge">Loading availability…</span><span id="gfBadge">Loading gluten-free bases…</span></div></div></header>
   <main class="container">
     <form id="orderForm" novalidate>
       <section class="step-card"><div class="step-number">1</div><div class="step-content"><h2>Who is collecting?</h2><label for="customerName">Collector name</label><input id="customerName" name="customerName" maxlength="60" autocomplete="name" placeholder="Enter your name" required></div></section>
@@ -24,9 +25,9 @@
       <section class="step-card review-card"><div class="step-number">5</div><div class="step-content"><h2>Review your order</h2><div id="review" class="review"><p>Choose your pizza to see the order summary.</p></div><label class="confirm"><input id="confirm" type="checkbox" required> I have checked the name, pizza, base and collection time.</label></div></section>
       <div id="message" class="message hidden" role="alert"></div><div class="sticky-submit"><button id="submitButton" class="primary" type="submit">Reserve my pizza</button></div>
     </form>
-    <section id="success" class="success hidden" aria-live="polite"><div class="official-brand success-brand"></div><div class="success-icon">✓</div><h2>Your pizza is booked!</h2><div id="successDetails"></div><button id="anotherOrder" class="secondary" type="button">Order another pizza</button></section>
+    <section id="success" class="success hidden" aria-live="polite"><div class="official-brand success-brand"></div><div class="success-icon">✓</div><h2>Your pizza is booked!</h2><p class="pop-note">Pick up your soft drink when you collect. Grazie, ED team!</p><div id="successDetails"></div><button id="anotherOrder" class="secondary" type="button">Order another pizza</button></section>
   </main>
-  <footer><div class="official-brand footer-brand"></div><span>Pizza tent ordering</span><a class="kitchen-admin-link" href="/admin">Kitchen Admin</a></footer>
+  <footer><div class="footer-cols"><div><span class="footer-kicker">Funded by</span><strong>Doctor Mo &amp; the Wellbeing Team</strong></div><div><span class="footer-kicker">❤️ We accept donations</span><strong>to help us grow future wellbeing activities for our ED team</strong></div></div><a class="kitchen-admin-link" href="/admin">Kitchen Admin</a></footer>
   <script src="/app.js" defer></script>
   <script src="/ingredient-images.js?v=1" defer></script>
 </body>
