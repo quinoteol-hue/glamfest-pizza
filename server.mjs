@@ -27,7 +27,7 @@ function cleanText(value,max=80){return String(value??'').trim().replace(/\s+/g,
 function toMinutes(hhmm){const m=/^(\d{1,2}):(\d{2})$/.exec(String(hhmm||''));if(!m)return NaN;const h=Number(m[1]),min=Number(m[2]);return h<24&&min<60?h*60+min:NaN;}
 function toHHMM(minutes){return `${String(Math.floor(minutes/60)).padStart(2,'0')}:${String(minutes%60).padStart(2,'0')}`;}
 function allSlots(settings){const slots=[];for(let m=toMinutes(settings.serviceStart);m<=toMinutes(settings.serviceEnd);m+=settings.slotMinutes)slots.push(toHHMM(m));return slots;}
-function normaliseTime(value,fallback){let m=toMinutes(cleanText(value,5));if(!Number.isFinite(m)||m<6*60||m>22*60)m=toMinutes(fallback);return toHHMM(m);}
+function normaliseTime(value,fallback){let m=toMinutes(cleanText(value,5));if(!Number.isFinite(m))m=toMinutes(fallback);return toHHMM(m);}
 function defaultSettings(){return{maxPizzas:DEFAULT_MAX_PIZZAS,unavailableIngredients:[],...DEFAULT_SERVICE,...DEFAULT_AUDIT};}
 function clampInt(value,min,max,fallback){const n=Number.parseInt(value,10);return Number.isFinite(n)?Math.max(min,Math.min(max,n)):fallback;}
 function normaliseSettings(value={}){
