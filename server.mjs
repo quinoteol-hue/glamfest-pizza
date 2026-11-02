@@ -151,6 +151,12 @@ const server=http.createServer(async(req,res)=>{
       if(clash.length)throw new Error(`The audit cooking time (${[...prep].sort()[0]}–${next.auditBreakStart}) would overlap ${clash.length} staff order(s) already booked at ${[...new Set(clash.map(o=>o.slot))].sort().join(', ')}. Move or cancel those first, or change the break time.`);
       store.settings=next;return next;});return sendJson(res,200,{settings});}catch(error){return sendJson(res,400,{error:error.message});}
   }
+  if(pathname==='/api/admin/reset'&&req.method==='POST'){
+    if(!isAdmin(req,url))return sendJson(res,401,{error:'Incorrect admin PIN.'});
+    try{const payload=await bodyJson(req);if(cleanText(payload.confirm,10)!=='RESET')throw new Error('Type RESET to confirm.');
+      const removed=await mutateStore(store=>{const n=store.orders.length;store.orders=[];return n;});return sendJson(res,200,{removed});}
+    catch(error){return sendJson(res,400,{error:error.message});}
+  }
   const adminMatch=pathname.match(/^\/api\/admin\/orders\/([^/]+)$/);
   if(adminMatch&&req.method==='PATCH'){
     if(!isAdmin(req,url))return sendJson(res,401,{error:'Incorrect admin PIN.'});const allowed=new Set(['Pending','Preparing','Ready','Collected','Cancelled']),payload=await bodyJson(req),status=cleanText(payload.status,20);if(!allowed.has(status))return sendJson(res,400,{error:'Invalid status.'});

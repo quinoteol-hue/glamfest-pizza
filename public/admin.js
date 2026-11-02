@@ -158,6 +158,15 @@ $('#pin').onkeydown=e=>{if(e.key==='Enter')login();};
 $('#togglePin').onclick=()=>{const input=$('#pin'),showing=input.type==='text';input.type=showing?'password':'text';$('#togglePin').textContent=showing?'Show':'Hide';};
 $('#refresh').onclick=()=>refresh(false);
 $('#saveSettings').onclick=saveSettings;
+$('#resetOrders').onclick=async()=>{
+  const n=orders.length;
+  if(!n)return show($('#adminMessage'),'There are no orders to reset.');
+  const typed=prompt(`This permanently removes all ${n} order(s), including real ones.\n\nType RESET to confirm:`);
+  if(typed===null)return;
+  if(typed.trim().toUpperCase()!=='RESET')return show($('#adminMessage'),'Reset cancelled: you need to type RESET.');
+  try{const data=await request('/api/admin/reset',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({confirm:'RESET'})});await refresh(true);show($('#adminMessage'),`Done: ${data.removed} order(s) removed. The board is back to zero.`);window.scrollTo({top:0,behavior:'smooth'});}
+  catch(error){show($('#adminMessage'),error.message);}
+};
 ['serviceStart','serviceEnd','slotMinutes','pizzasPerSlot','maxPizzas','auditEnabled','auditBreakStart','auditBreakMinutes','auditPizzas'].forEach(id=>{const el=document.getElementById(id);el.addEventListener('input',renderAuditPlan);el.addEventListener('change',renderAuditPlan);});
 $('#search').oninput=()=>render({preservePosition:false});
 $('#logout').onclick=()=>{sessionStorage.removeItem('glamfestAdminPin');location.reload();};
