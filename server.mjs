@@ -17,9 +17,9 @@ const SLOT_INTERVAL = 2;
 // The kitchen cooking time just before the break (one pizza per slot) is kept free of staff bookings.
 const DEFAULT_AUDIT = {auditEnabled:true,auditBreakStart:'13:00',auditBreakMinutes:40,auditPizzas:15};
 const TOPPINGS = ['Pepperoni','Ham','Mushrooms','Red onion','Red pepper','Yellow pepper','Green pepper','Black olives','Pineapple','Jalapeños','Chillies','Fresh basil'];
-const OILS = ['None','Garlic oil','Chilli oil'];
+const OILS = ['None'];
 const SPECIALS = {
-  resus:{name:'Resus Pizza',toppings:['Pepperoni','Jalapeños','Chillies'],oil:'Chilli oil'},
+  resus:{name:'Resus Pizza',toppings:['Pepperoni','Jalapeños','Chillies'],oil:'None'},
   paeds:{name:'Paeds Pizza',toppings:['Ham','Pineapple'],oil:'None'},
   triage:{name:'Triage Pizza',toppings:['Mushrooms','Red onion','Yellow pepper','Green pepper'],oil:'None'}
 };
@@ -90,7 +90,7 @@ function activeOrders(store){return store.orders.filter(o=>o.status!=='Cancelled
 function unavailableSpecials(settings){const unavailable=new Set(settings.unavailableIngredients);return Object.fromEntries(Object.entries(SPECIALS).map(([key,s])=>[key,[...s.toppings,s.oil].some(i=>i!=='None'&&unavailable.has(i))]));}
 function normaliseOrder(body,settings){
   const customerName=cleanText(body.customerName,60),specialKey=cleanText(body.specialKey,20).toLowerCase(),audit=body.group==='audit';
-  let toppings=Array.isArray(body.toppings)?body.toppings.map(v=>cleanText(v,30)):[],oil=cleanText(body.oil,20)||'None',pizzaName='Build Your Own';
+  let toppings=Array.isArray(body.toppings)?body.toppings.map(v=>cleanText(v,30)):[],oil='None',pizzaName='Build Your Own';
   if(specialKey&&SPECIALS[specialKey]){const s=SPECIALS[specialKey];pizzaName=s.name;toppings=[...s.toppings];oil=s.oil;}
   toppings=[...new Set(toppings)].filter(t=>TOPPINGS.includes(t));
   if(toppings.length>4)throw new Error('Choose a maximum of 4 toppings.');
