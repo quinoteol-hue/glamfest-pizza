@@ -11,8 +11,7 @@ const ADMIN_PIN = String(process.env.ADMIN_PIN || '222');
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'orders.json');
 const DEFAULT_MAX_PIZZAS = 80;
-const START_MINUTES = 12 * 60;
-const END_MINUTES = 14 * 60 + 30;
+const DEFAULT_SERVICE = {serviceStart:'12:00',serviceEnd:'14:30',pizzasPerSlot:1};
 const SLOT_INTERVAL = 2;
 // Audit team: their pizzas are all ready together at the start of their break.
 // The kitchen cooking time just before the break (one pizza per slot) is kept free of staff bookings.
@@ -28,28 +27,31 @@ let writeQueue=Promise.resolve();
 function cleanText(value,max=80){return String(value??'').trim().replace(/\s+/g,' ').slice(0,max);}
 function toMinutes(hhmm){const m=/^(\d{1,2}):(\d{2})$/.exec(String(hhmm||''));if(!m)return NaN;const h=Number(m[1]),min=Number(m[2]);return h<24&&min<60?h*60+min:NaN;}
 function toHHMM(minutes){return `${String(Math.floor(minutes/60)).padStart(2,'0')}:${String(minutes%60).padStart(2,'0')}`;}
-function allSlots(){const slots=[];for(let m=START_MINUTES;m<=END_MINUTES;m+=SLOT_INTERVAL)slots.push(toHHMM(m));return slots;}
-const VALID_SLOTS=new Set(allSlots());
-function defaultSettings(){return{maxPizzas:DEFAULT_MAX_PIZZAS,unavailableIngredients:[],...DEFAULT_AUDIT};}
+function allSlots(settings){const slots=[];for(let m=toMinutes(settings.serviceStart);m<=toMinutes(settings.serviceEnd);m+=SLOT_INTERVAL)slots.push(toHHMM(m));return slots;}
+function normaliseTime(value,fallback){let m=toMinutes(cleanText(value,5));if(!Number.isFinite(m)||m<6*60||m>22*60)m=toMinutes(fallback);return toHHMM(Math.round(m/SLOT_INTERVAL)*SLOT_INTERVAL);}
+function defaultSettings(){return{maxPizzas:DEFAULT_MAX_PIZZAS,unavailableIngredients:[],...DEFAULT_SERVICE,...DEFAULT_AUDIT};}
 function clampInt(value,min,max,fallback){const n=Number.parseInt(value,10);return Number.isFinite(n)?Math.max(min,Math.min(max,n)):fallback;}
 function normaliseSettings(value={}){
   const maxPizzas=clampInt(value.maxPizzas,1,200,DEFAULT_MAX_PIZZAS);
   const valid=new Set([...TOPPINGS,...OILS.filter(o=>o!=='None')]);
   const unavailableIngredients=Array.isArray(value.unavailableIngredients)?[...new Set(value.unavailableIngredients.map(v=>cleanText(v,30)).filter(v=>valid.has(v)))]:[];
   const auditEnabled=value.auditEnabled===undefined?DEFAULT_AUDIT.auditEnabled:Boolean(value.auditEnabled);
-  let start=toMinutes(cleanText(value.auditBreakStart,5));
-  if(!Number.isFinite(start)||start<6*60||start>22*60)start=toMinutes(DEFAULT_AUDIT.auditBreakStart);
-  start=Math.round(start/SLOT_INTERVAL)*SLOT_INTERVAL;
+  const start=toMinutes(normaliseTime(value.auditBreakStart,DEFAULT_AUDIT.auditBreakStart));
+  const serviceStart=normaliseTime(value.serviceStart,DEFAULT_SERVICE.serviceStart);
+  let serviceEnd=normaliseTime(value.serviceEnd,DEFAULT_SERVICE.serviceEnd);
+  if(toMinutes(serviceEnd)<toMinutes(serviceStart))serviceEnd=serviceStart;
+  const pizzasPerSlot=clampInt(value.pizzasPerSlot,1,6,DEFAULT_SERVICE.pizzasPerSlot);
   const auditBreakMinutes=clampInt(value.auditBreakMinutes,10,120,DEFAULT_AUDIT.auditBreakMinutes);
   const auditPizzas=clampInt(value.auditPizzas,0,80,DEFAULT_AUDIT.auditPizzas);
-  return{maxPizzas,unavailableIngredients,auditEnabled,auditBreakStart:toHHMM(start),auditBreakMinutes,auditPizzas};
+  return{maxPizzas,unavailableIngredients,serviceStart,serviceEnd,pizzasPerSlot,auditEnabled,auditBreakStart:toHHMM(start),auditBreakMinutes,auditPizzas};
 }
 // Staff slots kept free so the kitchen can cook the audit pizzas before their break starts.
 function auditPrepSlots(settings){
   if(!settings.auditEnabled||!settings.auditPizzas)return new Set();
-  const start=toMinutes(settings.auditBreakStart),from=start-settings.auditPizzas*SLOT_INTERVAL;
-  return new Set(allSlots().filter(s=>{const m=toMinutes(s);return m>=from&&m<start;}));
+  const start=toMinutes(settings.auditBreakStart),from=start-Math.ceil(settings.auditPizzas/settings.pizzasPerSlot)*SLOT_INTERVAL;
+  return new Set(allSlots(settings).filter(s=>{const m=toMinutes(s);return m>=from&&m<start;}));
 }
+function capacityInfo(settings){const slots=allSlots(settings).length,prep=auditPrepSlots(settings).size,staff=(slots-prep)*settings.pizzasPerSlot,audit=settings.auditEnabled?settings.auditPizzas:0;return{slots,staff,audit,timetable:staff+audit};}
 function auditInfo(settings,active){
   const start=toMinutes(settings.auditBreakStart),prep=[...auditPrepSlots(settings)].sort(),booked=active.filter(o=>o.audit).length;
   return{enabled:settings.auditEnabled,breakStart:settings.auditBreakStart,breakEnd:toHHMM(start+settings.auditBreakMinutes),breakMinutes:settings.auditBreakMinutes,reserved:settings.auditPizzas,booked,remaining:Math.max(0,settings.auditPizzas-booked),prepFrom:prep[0]||'',prepTo:prep.length?toHHMM(toMinutes(prep[prep.length-1])+SLOT_INTERVAL):''};
@@ -98,7 +100,7 @@ function normaliseOrder(body,settings){
   if(!customerName)throw new Error('Enter the name of the person collecting the pizza.');
   let slot;
   if(audit){if(!settings.auditEnabled)throw new Error('Audit team ordering is closed. Please choose a staff collection time.');slot=settings.auditBreakStart;}
-  else{slot=cleanText(body.slot,5);if(!VALID_SLOTS.has(slot))throw new Error('Choose an available collection time between 12:00 and 14:30.');}
+  else{slot=cleanText(body.slot,5);if(!allSlots(settings).includes(slot))throw new Error(`Choose an available collection time between ${settings.serviceStart} and ${settings.serviceEnd}.`);}
   return{customerName,pizzaName,specialKey:SPECIALS[specialKey]?specialKey:'',base:'standard',toppings,oil,slot,audit};
 }
 // Checks that an order (new or reopened) still fits. `active` must not include the order itself.
@@ -110,7 +112,8 @@ function assertFits(order,active,settings){
     return;
   }
   if(auditPrepSlots(settings).has(order.slot))throw new Error('That time is kept free for the audit team pizzas. Please choose another slot.');
-  if(active.some(o=>!o.audit&&o.slot===order.slot))throw new Error('That time has just been taken. Please choose another slot.');
+  if(!allSlots(settings).includes(order.slot))throw new Error('That collection time is no longer offered.');
+  if(active.filter(o=>!o.audit&&o.slot===order.slot).length>=settings.pizzasPerSlot)throw new Error('That time has just been taken. Please choose another slot.');
 }
 const MIME={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.svg':'image/svg+xml','.json':'application/json; charset=utf-8'};
 function sendJson(res,status,value){const body=JSON.stringify(value);res.writeHead(status,{'content-type':MIME['.json'],'content-length':Buffer.byteLength(body),'cache-control':'no-store'});res.end(body);}
@@ -124,14 +127,15 @@ const server=http.createServer(async(req,res)=>{
   const url=new URL(req.url,`http://${req.headers.host||'localhost'}`),pathname=decodeURIComponent(url.pathname);
   if(req.method==='GET'&&pathname==='/api/config'){
     const store=await readStore(),active=activeOrders(store),unavailable=new Set(store.settings.unavailableIngredients),prep=auditPrepSlots(store.settings);
-    const usedSlots=[...new Set([...active.filter(o=>!o.audit).map(o=>o.slot),...prep])];
-    return sendJson(res,200,{toppings:TOPPINGS.filter(i=>!unavailable.has(i)),oils:OILS.filter(i=>i==='None'||!unavailable.has(i)),specials:SPECIALS,unavailableSpecials:unavailableSpecials(store.settings),slots:allSlots(),usedSlots,maxPizzas:store.settings.maxPizzas,currentCount:active.length,remaining:Math.max(0,store.settings.maxPizzas-active.length),audit:auditInfo(store.settings,active)});
+    const perSlot={};for(const o of active)if(!o.audit)perSlot[o.slot]=(perSlot[o.slot]||0)+1;
+    const usedSlots=[...new Set([...Object.keys(perSlot).filter(k=>perSlot[k]>=store.settings.pizzasPerSlot),...prep])];
+    return sendJson(res,200,{toppings:TOPPINGS.filter(i=>!unavailable.has(i)),oils:OILS.filter(i=>i==='None'||!unavailable.has(i)),specials:SPECIALS,unavailableSpecials:unavailableSpecials(store.settings),slots:allSlots(store.settings),serviceStart:store.settings.serviceStart,serviceEnd:store.settings.serviceEnd,pizzasPerSlot:store.settings.pizzasPerSlot,usedSlots,maxPizzas:store.settings.maxPizzas,currentCount:active.length,remaining:Math.max(0,store.settings.maxPizzas-active.length),audit:auditInfo(store.settings,active),capacity:capacityInfo(store.settings)});
   }
   if(req.method==='GET'&&pathname==='/api/qr'){const configured=cleanText(process.env.PUBLIC_URL,300),origin=configured||`${req.headers['x-forwarded-proto']||'http'}://${req.headers.host}`,qr=u=>`https://api.qrserver.com/v1/create-qr-code/?size=900x900&ecc=H&data=${encodeURIComponent(u)}`,base=origin.replace(/\/+$/,''),auditUrl=`${base}/audit`;return sendJson(res,200,{url:origin,imageUrl:qr(origin),auditUrl,auditImageUrl:qr(auditUrl)});}
   if(req.method==='POST'&&pathname==='/api/orders'){
     try{const payload=await bodyJson(req);const order=await mutateStore(store=>{const input=normaliseOrder(payload,store.settings);assertFits(input,activeOrders(store),store.settings);const now=new Date().toISOString();const created={id:crypto.randomUUID(),orderNumber:store.orders.reduce((m,o)=>Math.max(m,Number(o.orderNumber)||0),0)+1,...input,status:'Pending',createdAt:now,updatedAt:now};store.orders.push(created);return created;});return sendJson(res,201,{order,audit:order.audit?auditInfo((await readStore()).settings,[]):undefined});}catch(error){return sendJson(res,400,{error:error.message||'Unable to place the order.'});}
   }
-  if(pathname==='/api/admin/orders'&&req.method==='GET'){if(!isAdmin(req,url))return sendJson(res,401,{error:'Incorrect admin PIN.'});const store=await readStore(),active=activeOrders(store);return sendJson(res,200,{orders:[...store.orders].sort((a,b)=>a.slot.localeCompare(b.slot)||Number(Boolean(b.audit))-Number(Boolean(a.audit))||a.orderNumber-b.orderNumber),settings:store.settings,audit:auditInfo(store.settings,active),ingredients:[...TOPPINGS,...OILS.filter(o=>o!=='None')]});}
+  if(pathname==='/api/admin/orders'&&req.method==='GET'){if(!isAdmin(req,url))return sendJson(res,401,{error:'Incorrect admin PIN.'});const store=await readStore(),active=activeOrders(store);return sendJson(res,200,{orders:[...store.orders].sort((a,b)=>a.slot.localeCompare(b.slot)||Number(Boolean(b.audit))-Number(Boolean(a.audit))||a.orderNumber-b.orderNumber),settings:store.settings,audit:auditInfo(store.settings,active),capacity:capacityInfo(store.settings),ingredients:[...TOPPINGS,...OILS.filter(o=>o!=='None')]});}
   if(pathname==='/api/admin/settings'&&req.method==='PATCH'){
     if(!isAdmin(req,url))return sendJson(res,401,{error:'Incorrect admin PIN.'});
     try{const payload=await bodyJson(req);const settings=await mutateStore(store=>{const active=activeOrders(store),next=normaliseSettings({...store.settings,...payload});
@@ -139,6 +143,10 @@ const server=http.createServer(async(req,res)=>{
       const auditBooked=active.filter(o=>o.audit);
       if(auditBooked.length&&(!next.auditEnabled||next.auditPizzas<auditBooked.length))throw new Error(`There are ${auditBooked.length} active audit team orders. Cancel them first, or keep at least that many audit pizzas.`);
       if(auditBooked.length&&next.auditBreakStart!==store.settings.auditBreakStart){for(const o of auditBooked){o.slot=next.auditBreakStart;o.updatedAt=new Date().toISOString();}}
+      const staff=active.filter(o=>!o.audit),slotSet=new Set(allSlots(next)),outside=staff.filter(o=>!slotSet.has(o.slot));
+      if(outside.length)throw new Error(`${outside.length} staff order(s) are booked at ${[...new Set(outside.map(o=>o.slot))].sort().join(', ')}, outside ${next.serviceStart}–${next.serviceEnd}. Keep those times inside the collection window.`);
+      const counts={};for(const o of staff)counts[o.slot]=(counts[o.slot]||0)+1;const busiest=Math.max(0,...Object.values(counts));
+      if(busiest>next.pizzasPerSlot)throw new Error(`One time already has ${busiest} pizzas booked, so pizzas per slot cannot go below ${busiest}.`);
       const prep=auditPrepSlots(next),clash=active.filter(o=>!o.audit&&prep.has(o.slot));
       if(clash.length)throw new Error(`The audit cooking time (${[...prep].sort()[0]}–${next.auditBreakStart}) would overlap ${clash.length} staff order(s) already booked at ${[...new Set(clash.map(o=>o.slot))].sort().join(', ')}. Move or cancel those first, or change the break time.`);
       store.settings=next;return next;});return sendJson(res,200,{settings});}catch(error){return sendJson(res,400,{error:error.message});}

@@ -1,6 +1,6 @@
 const statuses=['Pending','Preparing','Ready','Collected','Cancelled'];
 const $=s=>document.querySelector(s);
-let pin=sessionStorage.getItem('glamfestAdminPin')||'',orders=[],settings={},audit={},ingredients=[],timer,lastOrdersSignature='';
+let pin=sessionStorage.getItem('glamfestAdminPin')||'',orders=[],settings={},audit={},capacity={},ingredients=[],timer,lastOrdersSignature='';
 
 function escapeHtml(value){return String(value).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
 function show(el,text){el.textContent=text;el.classList.remove('hidden');}
@@ -18,7 +18,7 @@ function applyData(data,{force=false,preservePosition=true}={}){
   const nextOrders=data.orders||orders,nextSettings=data.settings||settings,nextIngredients=data.ingredients||ingredients;
   const nextSignature=ordersSignature(nextOrders),ordersChanged=force||nextSignature!==lastOrdersSignature;
   const settingsChanged=force||JSON.stringify(nextSettings)!==JSON.stringify(settings)||JSON.stringify(nextIngredients)!==JSON.stringify(ingredients);
-  orders=nextOrders;settings=nextSettings;ingredients=nextIngredients;if(data.audit)audit=data.audit;
+  orders=nextOrders;settings=nextSettings;ingredients=nextIngredients;if(data.audit)audit=data.audit;if(data.capacity)capacity=data.capacity;
   if(settingsChanged)renderSettings();
   if(ordersChanged||settingsChanged){render({preservePosition});lastOrdersSignature=nextSignature;}
 }
@@ -39,6 +39,7 @@ function renderSettings(){
   if(!settings)return;
   const activeId=document.activeElement?.id;
   $('#maxPizzas').value=settings.maxPizzas;
+  $('#serviceStart').value=settings.serviceStart||'';$('#serviceEnd').value=settings.serviceEnd||'';$('#pizzasPerSlot').value=settings.pizzasPerSlot||1;
   $('#auditEnabled').checked=Boolean(settings.auditEnabled);$('#auditBreakStart').value=settings.auditBreakStart||'';$('#auditBreakMinutes').value=settings.auditBreakMinutes;$('#auditPizzas').value=settings.auditPizzas;
   renderAuditPlan();
   const unavailable=new Set(settings.unavailableIngredients||[]);
@@ -47,7 +48,8 @@ function renderSettings(){
 }
 
 function renderAuditPlan(){
-  const a=audit||{};
+  const a=audit||{},c=capacity||{};
+  $('#capacityPlan').innerHTML=c.slots?`Timetable fits <strong>${c.timetable}</strong> pizzas: ${c.staff} staff (${c.slots} times × ${settings.pizzasPerSlot||1}${c.audit?`, minus the audit cooking time`:''})${c.audit?` + ${c.audit} audit`:''}.${c.timetable<(settings.maxPizzas||0)?` <em>Total pizzas is set to ${settings.maxPizzas}, so the timetable is the real limit.</em>`:''}`:'';
   $('#auditPlan').innerHTML=a.enabled?`<strong>${a.booked}/${a.reserved}</strong> audit pizzas booked · ready at <strong>${escapeHtml(a.breakStart)}</strong> (break ${escapeHtml(a.breakStart)}–${escapeHtml(a.breakEnd)})${a.prepFrom?` · staff slots ${escapeHtml(a.prepFrom)}–${escapeHtml(a.prepTo)} kept free for cooking`:''}`:'Audit link is closed.';
 }
 function render({preservePosition=true}={}){
@@ -77,7 +79,7 @@ function orderCard(o){
 async function saveSettings(){
   const unavailable=[...document.querySelectorAll('#ingredientControls input:not(:checked)')].map(i=>i.value);
   try{
-    const data=await request('/api/admin/settings',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({maxPizzas:Number($('#maxPizzas').value),auditEnabled:$('#auditEnabled').checked,auditBreakStart:$('#auditBreakStart').value,auditBreakMinutes:Number($('#auditBreakMinutes').value),auditPizzas:Number($('#auditPizzas').value),unavailableIngredients:unavailable})});
+    const data=await request('/api/admin/settings',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({maxPizzas:Number($('#maxPizzas').value),serviceStart:$('#serviceStart').value,serviceEnd:$('#serviceEnd').value,pizzasPerSlot:Number($('#pizzasPerSlot').value),auditEnabled:$('#auditEnabled').checked,auditBreakStart:$('#auditBreakStart').value,auditBreakMinutes:Number($('#auditBreakMinutes').value),auditPizzas:Number($('#auditPizzas').value),unavailableIngredients:unavailable})});
     settings=data.settings;await refresh(true);renderSettings();render();
     show($('#adminMessage'),'Kitchen availability saved. Customer options are updated immediately.');
   }catch(error){show($('#adminMessage'),error.message);}

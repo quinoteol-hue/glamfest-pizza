@@ -57,6 +57,7 @@ function renderSlots(previousSlot=''){
     submitButton.disabled=!auditOpen();
     return;
   }
+  $('#slotHelp').textContent=`Collection runs from ${state.config.serviceStart} to ${state.config.serviceEnd}. Times disappear once they are full.`;
   const used=new Set(state.config.usedSlots),options=state.config.slots.filter(s=>!used.has(s)||s===previousSlot);
   $('#slot').innerHTML='<option value="">Select a time</option>'+options.map(s=>`<option value="${s}">${s}</option>`).join('');
   if(previousSlot&&options.includes(previousSlot))$('#slot').value=previousSlot;

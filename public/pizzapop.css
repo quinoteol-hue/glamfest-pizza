@@ -81,3 +81,5 @@ footer{background:var(--navy);color:#fff;border-top:6px solid var(--pop-red);pad
 .audit-label{background:#e3f4e6!important;border-color:var(--it-green)!important;color:#1f6b2d}
 .audit-stat{border-color:var(--it-green)}
 .audit-qr-title{margin-top:18px;color:var(--it-green)}
+.capacity-plan{background:#fff;border:2px solid var(--navy);border-radius:12px;padding:10px 12px;color:var(--navy);margin:10px 0 0}
+.capacity-plan em{color:var(--pop-red);font-style:normal;font-weight:800}
