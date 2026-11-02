@@ -107,3 +107,10 @@ footer{background:var(--navy);color:#fff;border-top:6px solid var(--pop-red);pad
 footer .donate-button{margin-top:10px}
 footer .donate-note{color:#dfe5f3}
 .hero .donate-note{font-size:.78rem;font-weight:500;color:var(--muted);margin-top:10px}
+
+/* Ingredient illustrations remain secondary to the written names. */
+#toppings .choice{display:flex;align-items:center;gap:12px;min-height:76px;padding:10px 12px}
+#toppings .topping-picture{width:52px;height:52px;flex:0 0 52px;background:#fff9ed;border-radius:12px;padding:3px}
+#toppings .topping-name{font-size:1rem;line-height:1.25;font-weight:800;color:var(--navy)}
+#toppings .choice input{flex:0 0 auto}
+@media(max-width:480px){#toppings .choice{gap:8px;padding:8px;min-height:68px}#toppings .topping-picture{width:42px;height:42px;flex-basis:42px}#toppings .topping-name{font-size:.92rem}}
