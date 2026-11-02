@@ -36,9 +36,36 @@ function normaliseSettings(value={}){
   const unavailableIngredients=Array.isArray(value.unavailableIngredients)?[...new Set(value.unavailableIngredients.map(v=>cleanText(v,30)).filter(v=>valid.has(v)))]:[];
   return{maxPizzas,glutenFreeLimit,unavailableIngredients};
 }
-async function ensureStore(){await fs.mkdir(DATA_DIR,{recursive:true});try{await fs.access(DATA_FILE);}catch{await fs.writeFile(DATA_FILE,JSON.stringify({orders:[],settings:defaultSettings()},null,2));}}
-async function readStore(){await ensureStore();const parsed=JSON.parse(await fs.readFile(DATA_FILE,'utf8'));return{orders:Array.isArray(parsed.orders)?parsed.orders:[],settings:normaliseSettings(parsed.settings)};}
-async function mutateStore(mutator){let result;writeQueue=writeQueue.then(async()=>{const store=await readStore();result=await mutator(store);store.settings=normaliseSettings(store.settings);const tmp=`${DATA_FILE}.${process.pid}.${Date.now()}.tmp`;await fs.writeFile(tmp,JSON.stringify(store,null,2));await fs.rename(tmp,DATA_FILE);});await writeQueue;return result;}
+// Storage: Postgres when DATABASE_URL is set (free hosting has no persistent disk), otherwise a local JSON file.
+const DATABASE_URL=process.env.DATABASE_URL||'';
+let pool=null;
+function parseStore(parsed){parsed=parsed&&typeof parsed==='object'?parsed:{};return{orders:Array.isArray(parsed.orders)?parsed.orders:[],settings:normaliseSettings(parsed.settings)};}
+async function ensureStore(){
+  if(DATABASE_URL){
+    if(!pool){const {default:pg}=await import('pg');const local=/localhost|127\.0\.0\.1/.test(DATABASE_URL);pool=new pg.Pool({connectionString:DATABASE_URL,ssl:local||process.env.PGSSL==='disable'?false:{rejectUnauthorized:false},max:5});pool.on('error',err=>console.error('Postgres pool error:',err.message));}
+    await pool.query('CREATE TABLE IF NOT EXISTS pizza_store (id INTEGER PRIMARY KEY, data JSONB NOT NULL)');
+    await pool.query('INSERT INTO pizza_store (id,data) VALUES (1,$1) ON CONFLICT (id) DO NOTHING',[JSON.stringify({orders:[],settings:defaultSettings()})]);
+    return;
+  }
+  await fs.mkdir(DATA_DIR,{recursive:true});try{await fs.access(DATA_FILE);}catch{await fs.writeFile(DATA_FILE,JSON.stringify({orders:[],settings:defaultSettings()},null,2));}
+}
+async function readStore(){
+  if(DATABASE_URL){const {rows}=await pool.query('SELECT data FROM pizza_store WHERE id=1');return parseStore(rows[0]?.data);}
+  return parseStore(JSON.parse(await fs.readFile(DATA_FILE,'utf8')));
+}
+async function writeStoreFile(store){const tmp=`${DATA_FILE}.${process.pid}.${Date.now()}.tmp`;await fs.writeFile(tmp,JSON.stringify(store,null,2));await fs.rename(tmp,DATA_FILE);}
+async function runMutation(mutator){
+  if(DATABASE_URL){
+    const client=await pool.connect();
+    try{await client.query('BEGIN');const {rows}=await client.query('SELECT data FROM pizza_store WHERE id=1 FOR UPDATE');const store=parseStore(rows[0]?.data);const result=await mutator(store);store.settings=normaliseSettings(store.settings);await client.query('UPDATE pizza_store SET data=$1 WHERE id=1',[JSON.stringify(store)]);await client.query('COMMIT');return result;}
+    catch(error){await client.query('ROLLBACK').catch(()=>{});throw error;}
+    finally{client.release();}
+  }
+  const store=await readStore();const result=await mutator(store);store.settings=normaliseSettings(store.settings);await writeStoreFile(store);return result;
+}
+// Serialise writes. The queue must never stay rejected: previously one refused order (e.g. a taken slot)
+// left writeQueue rejected, so every later order and kitchen change failed until the server restarted.
+function mutateStore(mutator){const run=writeQueue.then(()=>runMutation(mutator));writeQueue=run.catch(()=>{});return run;}
 function activeOrders(store){return store.orders.filter(o=>o.status!=='Cancelled');}
 function unavailableSpecials(settings){const unavailable=new Set(settings.unavailableIngredients);return Object.fromEntries(Object.entries(SPECIALS).map(([key,s])=>[key,[...s.toppings,s.oil].some(i=>i!=='None'&&unavailable.has(i))]));}
 function normaliseOrder(body,settings){
@@ -70,7 +97,7 @@ const server=http.createServer(async(req,res)=>{
   }
   if(req.method==='GET'&&pathname==='/api/qr'){const configured=cleanText(process.env.PUBLIC_URL,300),origin=configured||`${req.headers['x-forwarded-proto']||'http'}://${req.headers.host}`,imageUrl=`https://api.qrserver.com/v1/create-qr-code/?size=900x900&ecc=H&data=${encodeURIComponent(origin)}`;return sendJson(res,200,{url:origin,imageUrl});}
   if(req.method==='POST'&&pathname==='/api/orders'){
-    try{const payload=await bodyJson(req);const order=await mutateStore(store=>{const input=normaliseOrder(payload,store.settings),active=activeOrders(store);if(active.length>=store.settings.maxPizzas)throw new Error(`All ${store.settings.maxPizzas} pizzas have now been reserved.`);if(input.base==='gluten-free'&&active.filter(o=>o.base==='gluten-free').length>=store.settings.glutenFreeLimit)throw new Error('All gluten-free pizza bases have now been reserved.');if(active.some(o=>o.slot===input.slot))throw new Error('That time has just been taken. Please choose another slot.');const created={id:crypto.randomUUID(),orderNumber:store.orders.length+1,...input,status:'Pending',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};store.orders.push(created);return created;});return sendJson(res,201,{order});}catch(error){return sendJson(res,400,{error:error.message||'Unable to place the order.'});}
+    try{const payload=await bodyJson(req);const order=await mutateStore(store=>{const input=normaliseOrder(payload,store.settings),active=activeOrders(store);if(active.length>=store.settings.maxPizzas)throw new Error(`All ${store.settings.maxPizzas} pizzas have now been reserved.`);if(input.base==='gluten-free'&&active.filter(o=>o.base==='gluten-free').length>=store.settings.glutenFreeLimit)throw new Error('All gluten-free pizza bases have now been reserved.');if(active.some(o=>o.slot===input.slot))throw new Error('That time has just been taken. Please choose another slot.');const created={id:crypto.randomUUID(),orderNumber:store.orders.reduce((m,o)=>Math.max(m,Number(o.orderNumber)||0),0)+1,...input,status:'Pending',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};store.orders.push(created);return created;});return sendJson(res,201,{order});}catch(error){return sendJson(res,400,{error:error.message||'Unable to place the order.'});}
   }
   if(pathname==='/api/admin/orders'&&req.method==='GET'){if(!isAdmin(req,url))return sendJson(res,401,{error:'Incorrect admin PIN.'});const store=await readStore();return sendJson(res,200,{orders:[...store.orders].sort((a,b)=>a.slot.localeCompare(b.slot)||a.orderNumber-b.orderNumber),settings:store.settings,ingredients:[...TOPPINGS,...OILS.filter(o=>o!=='None')]});}
   if(pathname==='/api/admin/settings'&&req.method==='PATCH'){
@@ -91,4 +118,6 @@ const server=http.createServer(async(req,res)=>{
  }catch(error){return sendJson(res,500,{error:error.message||'Server error.'});}
 });
 await ensureStore();
+function shutdown(){server.close(()=>{(pool?pool.end():Promise.resolve()).finally(()=>process.exit(0));});setTimeout(()=>process.exit(0),8000).unref();}
+process.on('SIGTERM',shutdown);process.on('SIGINT',shutdown);
 server.listen(PORT,()=>console.log(`Glamfest Pizza app running on http://localhost:${PORT}`));
