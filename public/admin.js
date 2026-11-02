@@ -40,7 +40,7 @@ function renderSettings(){
   const activeId=document.activeElement?.id;
   $('#maxPizzas').value=settings.maxPizzas;
   $('#serviceStart').value=settings.serviceStart||'';$('#serviceEnd').value=settings.serviceEnd||'';$('#pizzasPerSlot').value=settings.pizzasPerSlot||1;$('#slotMinutes').value=settings.slotMinutes||3;
-  $('#auditEnabled').checked=Boolean(settings.auditEnabled);$('#auditBreakStart').value=settings.auditBreakStart||'';$('#auditBreakMinutes').value=settings.auditBreakMinutes;$('#auditPizzas').value=settings.auditPizzas;
+  $('#auditEnabled').checked=Boolean(settings.auditEnabled);const breakSelect=$('#auditBreakStart');if(settings.auditBreakStart&&![...breakSelect.options].some(o=>o.value===settings.auditBreakStart)){breakSelect.add(new Option(settings.auditBreakStart+' (current)',settings.auditBreakStart));}breakSelect.value=settings.auditBreakStart||'';$('#auditBreakMinutes').value=settings.auditBreakMinutes;$('#auditPizzas').value=settings.auditPizzas;
   renderAuditPlan();
   const unavailable=new Set(settings.unavailableIngredients||[]);
   $('#ingredientControls').innerHTML=ingredients.map(i=>`<label class="choice"><input type="checkbox" value="${escapeHtml(i)}" ${unavailable.has(i)?'':'checked'}><span>${escapeHtml(i)}</span></label>`).join('');
@@ -76,9 +76,9 @@ function renderAuditPlan(){
   const hours=Math.floor((p.end-p.start)/60),m=(p.end-p.start)%60,span=`${hours?hours+' h ':''}${m?m+' min':''}`.trim();
   let stock='';
   if(p.maxP&&p.maxP<p.total)stock=`<li class="plan-warn">Stock limit is <strong>${p.maxP}</strong>, lower than the timetable, so ordering stops at ${p.maxP}.</li>`;
-  else if(p.maxP>p.total)stock=`<li class="plan-note">Stock limit (${p.maxP}) is higher than the timetable, so the timetable decides: <strong>${p.total}</strong>.</li>`;
+  else if(p.maxP>p.total)stock=`<li class="plan-note">Stock limit (${p.maxP}) is higher than the timetable, so the timetable allows <strong>${p.total} pizzas</strong>.</li>`;
   $('#capacityPlan').innerHTML=`${badge}
-    <div class="plan-total"><strong>${p.limit}</strong> pizzas can be ordered</div>
+    <div class="plan-total">Total booking capacity: <strong>${p.limit} pizzas</strong></div><p>This is calculated from collection times and kitchen pace, including the audit reservation. It is limited by available stock.</p>
     <ul class="plan-list">
       <li>Collection <strong>${hhmm(p.start)}–${hhmm(p.end)}</strong> (${span||'0 min'}) · ${p.times} collection times</li>
       <li>Kitchen pace: <strong>${pace}</strong></li>
