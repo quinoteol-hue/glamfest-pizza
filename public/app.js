@@ -58,7 +58,7 @@ function renderSlots(previousSlot=''){
     return;
   }
   $('#slotHelp').textContent=`Collection runs from ${state.config.serviceStart} to ${state.config.serviceEnd}. Times disappear once they are full.`;
-  const used=new Set(state.config.usedSlots),options=state.config.slots.filter(s=>!used.has(s)||s===previousSlot);
+  const used=new Set(state.config.usedSlots),options=state.config.slots.filter(s=>!used.has(s));
   $('#slot').innerHTML='<option value="">Select a time</option>'+options.map(s=>`<option value="${s}">${s}</option>`).join('');
   if(previousSlot&&options.includes(previousSlot))$('#slot').value=previousSlot;
   const soldOut=!options.length||state.config.remaining<=0;
@@ -134,3 +134,8 @@ window.addEventListener('unhandledrejection',event=>{showMessage(event.reason?.m
 setupMode();
 history.replaceState({view:'order'},'',location.pathname);
 loadConfig().catch(error=>showMessage(error.message));
+
+// Refresh server-authoritative availability on open ordering pages.
+setInterval(()=>{if(!document.hidden)loadConfig().catch(()=>{});},15000);
+window.addEventListener('focus',()=>loadConfig().catch(()=>{}));
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadConfig().catch(()=>{});});
