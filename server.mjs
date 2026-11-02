@@ -15,11 +15,11 @@ const DEFAULT_GLUTEN_FREE_LIMIT = 4;
 const START_MINUTES = 12 * 60;
 const END_MINUTES = 14 * 60 + 30;
 const SLOT_INTERVAL = 2;
-const TOPPINGS = ['Pepperoni','Ham','Mushrooms','Red onion','Red pepper','Yellow pepper','Green pepper','Black olives','Pineapple','Jalape�os','Chillies','Fresh basil'];
+const TOPPINGS = ['Pepperoni','Ham','Mushrooms','Red onion','Red pepper','Yellow pepper','Green pepper','Black olives','Pineapple','Jalapeños','Chillies','Fresh basil'];
 const OILS = ['None','Garlic oil','Chilli oil'];
 const BASES = [{key:'standard',name:'Standard base'},{key:'gluten-free',name:'Gluten-free base'}];
 const SPECIALS = {
-  resus:{name:'Resus Pizza',toppings:['Pepperoni','Jalape�os','Chillies'],oil:'Chilli oil'},
+  resus:{name:'Resus Pizza',toppings:['Pepperoni','Jalapeños','Chillies'],oil:'Chilli oil'},
   paeds:{name:'Paeds Pizza',toppings:['Ham','Pineapple'],oil:'None'},
   triage:{name:'Triage Pizza',toppings:['Mushrooms','Red onion','Yellow pepper','Green pepper'],oil:'None'}
 };
