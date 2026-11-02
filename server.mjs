@@ -38,7 +38,21 @@ function normaliseSettings(value={}){
 }
 async function ensureStore(){await fs.mkdir(DATA_DIR,{recursive:true});try{await fs.access(DATA_FILE);}catch{await fs.writeFile(DATA_FILE,JSON.stringify({orders:[],settings:defaultSettings()},null,2));}}
 async function readStore(){await ensureStore();const parsed=JSON.parse(await fs.readFile(DATA_FILE,'utf8'));return{orders:Array.isArray(parsed.orders)?parsed.orders:[],settings:normaliseSettings(parsed.settings)};}
-async function mutateStore(mutator){let result;writeQueue=writeQueue.then(async()=>{const store=await readStore();result=await mutator(store);store.settings=normaliseSettings(store.settings);const tmp=`${DATA_FILE}.${process.pid}.${Date.now()}.tmp`;await fs.writeFile(tmp,JSON.stringify(store,null,2));await fs.rename(tmp,DATA_FILE);});await writeQueue;return result;}
+async function mutateStore(mutator){
+  const operation=writeQueue.then(async()=>{
+    const store=await readStore();
+    const result=await mutator(store);
+    store.settings=normaliseSettings(store.settings);
+    const tmp=`${DATA_FILE}.${process.pid}.${Date.now()}.tmp`;
+    await fs.writeFile(tmp,JSON.stringify(store,null,2));
+    await fs.rename(tmp,DATA_FILE);
+    return result;
+  });
+  // Return this request's error, but let the next queued mutation run.
+  // A rejected booking or failed write must not disable every future write.
+  writeQueue=operation.catch(()=>{});
+  return operation;
+}
 function activeOrders(store){return store.orders.filter(o=>o.status!=='Cancelled');}
 function unavailableSpecials(settings){const unavailable=new Set(settings.unavailableIngredients);return Object.fromEntries(Object.entries(SPECIALS).map(([key,s])=>[key,[...s.toppings,s.oil].some(i=>i!=='None'&&unavailable.has(i))]));}
 function normaliseOrder(body,settings){
