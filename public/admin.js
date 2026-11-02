@@ -1,6 +1,6 @@
 const statuses=['Pending','Preparing','Ready','Collected','Cancelled'];
 const $=s=>document.querySelector(s);
-let pin=sessionStorage.getItem('glamfestAdminPin')||'',orders=[],settings={},ingredients=[],timer,lastOrdersSignature='';
+let pin=sessionStorage.getItem('glamfestAdminPin')||'',orders=[],settings={},ingredients=[],timer,lastOrdersSignature='',refreshing=false;
 
 function escapeHtml(value){return String(value).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
 function show(el,text){el.textContent=text;el.classList.remove('hidden');}
@@ -66,7 +66,7 @@ function render({preservePosition=true}={}){
 
 function orderCard(o){
   const details=o.toppings.length?o.toppings.join(', '):'Cheese and tomato only',base=o.base==='gluten-free'?'Gluten-free base':'Standard base';
-  return `<article class="order-card ${o.status==='Cancelled'?'cancelled-order':''}" data-card-id="${escapeHtml(o.id)}"><div class="order-actions"><span class="time-order-label">TIME ORDER: ${escapeHtml(o.slot)}</span><button class="delete-order" data-delete-order="${escapeHtml(o.id)}" type="button">× Remove</button></div><div class="order-top"><div><div class="order-number">#${o.orderNumber} · ${escapeHtml(o.customerName)}</div><strong>${escapeHtml(o.pizzaName)}</strong></div><span class="slot-pill">${escapeHtml(o.slot)}</span></div><div class="order-meta"><strong>${base}</strong> · ${escapeHtml(details)}${o.oil!=='None'?` · ${escapeHtml(o.oil)}`:''}</div><div class="status-row">${statuses.map(s=>`<button class="status-button ${o.status===s?'active':''}" data-order="${escapeHtml(o.id)}" data-status="${s}" type="button">${s}</button>`).join('')}</div></article>`;
+  return `<article class="order-card ${o.status==='Cancelled'?'cancelled-order':''}" data-card-id="${escapeHtml(o.id)}"><div class="order-actions"><span class="time-order-label">TIME ORDER: ${escapeHtml(o.slot)}</span><button class="delete-order" data-delete-order="${escapeHtml(o.id)}" type="button">� Remove</button></div><div class="order-top"><div><div class="order-number">#${o.orderNumber} � ${escapeHtml(o.customerName)}</div><strong>${escapeHtml(o.pizzaName)}</strong></div><span class="slot-pill">${escapeHtml(o.slot)}</span></div><div class="order-meta"><strong>${base}</strong> � ${escapeHtml(details)}${o.oil!=='None'?` � ${escapeHtml(o.oil)}`:''}</div><div class="status-row">${statuses.map(s=>`<button class="status-button ${o.status===s?'active':''}" data-order="${escapeHtml(o.id)}" data-status="${s}" type="button">${s}</button>`).join('')}</div></article>`;
 }
 
 async function saveSettings(){
@@ -79,8 +79,11 @@ async function saveSettings(){
 }
 
 async function refresh(silent=false){
+  if(refreshing)return;
+  refreshing=true;
   try{const data=await request('/api/admin/orders');applyData(data,{preservePosition:true});if(!silent)hide($('#adminMessage'));}
   catch(error){show($('#adminMessage'),error.message);}
+  finally{refreshing=false;}
 }
 
 async function setStatus(id,status,button){
@@ -100,7 +103,7 @@ async function deleteOrder(id){
 }
 
 async function loadQr(){try{const response=await fetch('/api/qr',{cache:'no-store'}),data=await response.json();$('#qrImage').src=data.imageUrl;$('#qrUrl').textContent=data.url;}catch{$('#qrUrl').textContent='QR unavailable';}}
-function startRefresh(){clearInterval(timer);timer=setInterval(()=>{if(!document.hidden&&!document.querySelector('.status-button:focus'))refresh(true);},15000);}
+function startRefresh(){clearInterval(timer);timer=setInterval(()=>{if(!document.hidden)refresh(true);},15000);}
 
 // Delegated events remain active even when the order list is rebuilt.
 $('#orders').addEventListener('click',event=>{
@@ -119,3 +122,4 @@ $('#logout').onclick=()=>{sessionStorage.removeItem('glamfestAdminPin');location
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&pin)refresh(true);});
 window.addEventListener('pageshow',event=>{if(event.persisted&&pin)refresh(true);});
 if(pin){$('#pin').value=pin;login();}else $('#pin').focus();
+

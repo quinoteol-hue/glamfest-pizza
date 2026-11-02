@@ -15,11 +15,11 @@ const DEFAULT_GLUTEN_FREE_LIMIT = 4;
 const START_MINUTES = 12 * 60;
 const END_MINUTES = 14 * 60 + 30;
 const SLOT_INTERVAL = 2;
-const TOPPINGS = ['Pepperoni','Ham','Mushrooms','Red onion','Red pepper','Yellow pepper','Green pepper','Black olives','Pineapple','Jalapeños','Chillies','Fresh basil'];
+const TOPPINGS = ['Pepperoni','Ham','Mushrooms','Red onion','Red pepper','Yellow pepper','Green pepper','Black olives','Pineapple','Jalape�os','Chillies','Fresh basil'];
 const OILS = ['None','Garlic oil','Chilli oil'];
 const BASES = [{key:'standard',name:'Standard base'},{key:'gluten-free',name:'Gluten-free base'}];
 const SPECIALS = {
-  resus:{name:'Resus Pizza',toppings:['Pepperoni','Jalapeños','Chillies'],oil:'Chilli oil'},
+  resus:{name:'Resus Pizza',toppings:['Pepperoni','Jalape�os','Chillies'],oil:'Chilli oil'},
   paeds:{name:'Paeds Pizza',toppings:['Ham','Pineapple'],oil:'None'},
   triage:{name:'Triage Pizza',toppings:['Mushrooms','Red onion','Yellow pepper','Green pepper'],oil:'None'}
 };
@@ -38,7 +38,21 @@ function normaliseSettings(value={}){
 }
 async function ensureStore(){await fs.mkdir(DATA_DIR,{recursive:true});try{await fs.access(DATA_FILE);}catch{await fs.writeFile(DATA_FILE,JSON.stringify({orders:[],settings:defaultSettings()},null,2));}}
 async function readStore(){await ensureStore();const parsed=JSON.parse(await fs.readFile(DATA_FILE,'utf8'));return{orders:Array.isArray(parsed.orders)?parsed.orders:[],settings:normaliseSettings(parsed.settings)};}
-async function mutateStore(mutator){let result;writeQueue=writeQueue.then(async()=>{const store=await readStore();result=await mutator(store);store.settings=normaliseSettings(store.settings);const tmp=`${DATA_FILE}.${process.pid}.${Date.now()}.tmp`;await fs.writeFile(tmp,JSON.stringify(store,null,2));await fs.rename(tmp,DATA_FILE);});await writeQueue;return result;}
+async function mutateStore(mutator){
+  const operation=writeQueue.then(async()=>{
+    const store=await readStore();
+    const result=await mutator(store);
+    store.settings=normaliseSettings(store.settings);
+    const tmp=`${DATA_FILE}.${process.pid}.${Date.now()}.tmp`;
+    await fs.writeFile(tmp,JSON.stringify(store,null,2));
+    await fs.rename(tmp,DATA_FILE);
+    return result;
+  });
+  // Return this request's error, but let the next queued mutation run.
+  // A rejected booking or failed write must not disable every future write.
+  writeQueue=operation.catch(()=>{});
+  return operation;
+}
 function activeOrders(store){return store.orders.filter(o=>o.status!=='Cancelled');}
 function unavailableSpecials(settings){const unavailable=new Set(settings.unavailableIngredients);return Object.fromEntries(Object.entries(SPECIALS).map(([key,s])=>[key,[...s.toppings,s.oil].some(i=>i!=='None'&&unavailable.has(i))]));}
 function normaliseOrder(body,settings){
