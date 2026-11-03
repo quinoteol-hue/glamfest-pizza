@@ -94,7 +94,7 @@ function choosePizza(key){
   hideMessage();updateReview();
 }
 function selection(){if(state.specialKey){const s=state.config.specials[state.specialKey];return{name:s.name,toppings:s.toppings,oil:s.oil};}return{name:'Build Your Own',toppings:state.toppings,oil:state.oil};}
-function updateReview(){if(!state.config)return;const name=$('#customerName').value.trim()||'Not entered',slot=AUDIT_MODE?`${state.config.audit?.breakStart||''} (audit break)`:($('#slot').value||'Not selected'),selected=document.querySelector('.pizza-card.selected');if(!selected){$('#review').innerHTML='<p>Choose your pizza to see the order summary.</p>';return;}const pizza=selection(),toppingText=pizza.toppings.length?pizza.toppings.join(', '):'Cheese and tomato only';$('#review').innerHTML=`<div class="review-row"><b>Collector</b><span>${escapeHtml(name)}</span></div><div class="review-row"><b>Pizza</b><span>${escapeHtml(pizza.name)}</span></div><div class="review-row"><b>Toppings</b><span>${escapeHtml(toppingText)}</span></div><div class="review-row"><b>Drink</b><span>${escapeHtml($('#drink')?.value||'No drink')}</span></div><div class="review-row"><b>Collection</b><span>${escapeHtml(slot)}</span></div>`;}
+function updateReview(){if(!state.config)return;const name=$('#customerName').value.trim()||'Not entered',slot=AUDIT_MODE?`${state.config.audit?.breakStart||''} (audit break)`:($('#slot').value||'Not selected'),selected=document.querySelector('.pizza-card.selected');if(!selected){$('#review').innerHTML='<p>Choose your pizza to see the order summary.</p>';return;}const pizza=selection(),toppingText=pizza.toppings.length?pizza.toppings.join(', '):'Cheese only';$('#review').innerHTML=`<div class="review-row"><b>Collector</b><span>${escapeHtml(name)}</span></div><div class="review-row"><b>Pizza</b><span>${escapeHtml(pizza.name)}</span></div><div class="review-row"><b>Base sauce</b><span>${$('#pizzaBase')?.value==='barbecue'?'Barbecue sauce':'Tomato sauce'}</span></div><div class="review-row"><b>Toppings</b><span>${escapeHtml(toppingText)}</span></div><div class="review-row"><b>Drink</b><span>${escapeHtml($('#drink')?.value||'No drink')}</span></div><div class="review-row"><b>Collection</b><span>${escapeHtml(slot)}</span></div>`;}
 
 function showOrderForm({scroll=true}={}){
   success.classList.add('hidden');
@@ -115,7 +115,7 @@ document.addEventListener('change',event=>{
   if(event.target.matches('#toppings input')){const checked=[...document.querySelectorAll('#toppings input:checked')];if(checked.length>4){event.target.checked=false;showMessage('Choose a maximum of four toppings.');return;}state.toppings=checked.map(i=>i.value);$('#toppingCount').textContent=state.toppings.length;hideMessage();updateReview();}
 });
 document.querySelectorAll('.pizza-card').forEach(button=>button.addEventListener('click',()=>choosePizza(button.dataset.special)));
-['customerName','slot','drink'].forEach(id=>$('#'+id)?.addEventListener('input',updateReview));
+['customerName','slot','drink','pizzaBase'].forEach(id=>$('#'+id)?.addEventListener('input',updateReview));
 $('#confirm').addEventListener('change',hideMessage);
 
 form.addEventListener('submit',async event=>{
@@ -128,7 +128,7 @@ form.addEventListener('submit',async event=>{
   if(!$('#confirm').checked)return showMessage('Please confirm that you have checked the order.');
   submitButton.disabled=true;submitButton.textContent='Reserving…';
   try{
-    const response=await fetch('/api/orders',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({customerName:$('#customerName').value,specialKey:state.specialKey,toppings:state.toppings,oil:state.oil,drink:$('#drink')?.value||'',slot:AUDIT_MODE?'':$('#slot').value,group:AUDIT_MODE?'audit':'staff'})});
+    const response=await fetch('/api/orders',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({customerName:$('#customerName').value,specialKey:state.specialKey,toppings:state.toppings,oil:state.oil,base:$('#pizzaBase')?.value||'standard',drink:$('#drink')?.value||'',slot:AUDIT_MODE?'':$('#slot').value,group:AUDIT_MODE?'audit':'staff'})});
     const data=await response.json();if(!response.ok)throw new Error(data.error||'Unable to reserve the pizza.');
     const o=data.order;
     form.classList.add('hidden');success.classList.remove('hidden');
