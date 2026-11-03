@@ -1,3 +1,4 @@
+let drinkStock=[];
 const statuses=['Pending','Preparing','Ready','Collected','Cancelled'];
 const $=s=>document.querySelector(s);
 let pin=sessionStorage.getItem('glamfestAdminPin')||'',orders=[],settings={},audit={},capacity={},ingredients=[],timer,lastOrdersSignature='';
@@ -18,6 +19,7 @@ function applyData(data,{force=false,preservePosition=true}={}){
   const nextOrders=data.orders||orders,nextSettings=data.settings||settings,nextIngredients=data.ingredients||ingredients;
   const nextSignature=ordersSignature(nextOrders),ordersChanged=force||nextSignature!==lastOrdersSignature;
   const settingsChanged=force||JSON.stringify(nextSettings)!==JSON.stringify(settings)||JSON.stringify(nextIngredients)!==JSON.stringify(ingredients);
+  if(data.drinkStock)drinkStock=data.drinkStock;
   orders=nextOrders;settings=nextSettings;ingredients=nextIngredients;if(data.audit)audit=data.audit;if(data.capacity)capacity=data.capacity;
   if(settingsChanged)renderSettings();
   if(ordersChanged||settingsChanged){render({preservePosition});lastOrdersSignature=nextSignature;}
@@ -95,6 +97,12 @@ function render({preservePosition=true}={}){
   const query=$('#search').value.trim().toLowerCase();
   const filtered=orders.filter(o=>[o.customerName,o.pizzaName,o.audit?'audit':'staff',o.slot,String(o.orderNumber),o.status,...o.toppings].join(' ').toLowerCase().includes(query));
   const active=orders.filter(o=>o.status!=='Cancelled'),auditActive=active.filter(o=>o.audit).length;renderAuditPlan();
+  const stockPanel=$('#drinkStock');
+  if(stockPanel)stockPanel.innerHTML=drinkStock.map(({name,total})=>{
+    const reserved=active.filter(order=>order.drink===name).length;
+    const left=Math.max(0,total-reserved);
+    return `<div class="stat"><b>${left}/${total} left</b><span>${escapeHtml(name)} · ${reserved} ordered</span></div>`;
+  }).join('');
   $('#summary').innerHTML=`<div class="stat"><b>${active.length}/${settings.maxPizzas||0}</b><span>Active pizzas</span></div><div class="stat audit-stat"><b>${auditActive}/${settings.auditPizzas||0}</b><span>Audit team</span></div>`+statuses.map(s=>`<div class="stat"><b>${orders.filter(o=>o.status===s).length}</b><span>${s}</span></div>`).join('');
   $('#orders').innerHTML=filtered.length?filtered.map(orderCard).join(''):'<div class="order-card"><strong>No matching orders.</strong></div>';
   if(preservePosition){
@@ -110,7 +118,7 @@ function render({preservePosition=true}={}){
 
 function orderCard(o){
   const details=o.toppings.length?o.toppings.join(', '):'Cheese only';
-  return `<article class="order-card ${o.status==='Cancelled'?'cancelled-order':''} ${o.audit?'audit-order':''}" data-card-id="${escapeHtml(o.id)}"><div class="order-actions"><span class="time-order-label ${o.audit?'audit-label':''}">${o.audit?'AUDIT TEAM · READY BY':'TIME ORDER:'} ${escapeHtml(o.slot)}</span><button class="delete-order" data-delete-order="${escapeHtml(o.id)}" type="button">× Remove</button></div><div class="order-top"><div><div class="order-number">#${o.orderNumber} · ${escapeHtml(o.customerName)}</div><strong>${escapeHtml(o.pizzaName)}</strong></div><span class="slot-pill">${escapeHtml(o.slot)}</span></div><div class="order-meta">${o.base==='barbecue'?'Barbecue sauce':'Tomato sauce'} · ${escapeHtml(details)}${o.drink?` · Drink: ${escapeHtml(o.drink)}`:''}${o.oil!=='None'?` · ${escapeHtml(o.oil)}`:''}</div><div class="status-row">${statuses.map(s=>`<button class="status-button ${o.status===s?'active':''}" data-order="${escapeHtml(o.id)}" data-status="${s}" type="button">${s}</button>`).join('')}</div></article>`;
+  return `<article class="order-card ${o.status==='Cancelled'?'cancelled-order':''} ${o.audit?'audit-order':''}" data-card-id="${escapeHtml(o.id)}"><div class="order-actions"><span class="time-order-label ${o.audit?'audit-label':''}">${o.audit?'AUDIT TEAM · READY BY':'TIME ORDER:'} ${escapeHtml(o.slot)}</span><button class="delete-order" data-delete-order="${escapeHtml(o.id)}" type="button">× Remove</button></div><div class="order-top"><div><div class="order-number">#${o.orderNumber} · ${escapeHtml(o.customerName)}</div><strong>${escapeHtml(o.pizzaName)}</strong></div><span class="slot-pill">${escapeHtml(o.slot)}</span></div><div class="order-meta">${o.base==='barbecue'?'Barbecue sauce':'Tomato sauce'} · ${escapeHtml(details)} · Drink: ${escapeHtml(o.drink||'No drink')}${o.oil!=='None'?` · ${escapeHtml(o.oil)}`:''}</div><div class="status-row">${statuses.map(s=>`<button class="status-button ${o.status===s?'active':''}" data-order="${escapeHtml(o.id)}" data-status="${s}" type="button">${s}</button>`).join('')}</div></article>`;
 }
 
 async function saveSettings(){
