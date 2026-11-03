@@ -110,7 +110,7 @@ function render({preservePosition=true}={}){
 
 function orderCard(o){
   const details=o.toppings.length?o.toppings.join(', '):'Cheese and tomato only';
-  return `<article class="order-card ${o.status==='Cancelled'?'cancelled-order':''} ${o.audit?'audit-order':''}" data-card-id="${escapeHtml(o.id)}"><div class="order-actions"><span class="time-order-label ${o.audit?'audit-label':''}">${o.audit?'AUDIT TEAM · READY BY':'TIME ORDER:'} ${escapeHtml(o.slot)}</span><button class="delete-order" data-delete-order="${escapeHtml(o.id)}" type="button">× Remove</button></div><div class="order-top"><div><div class="order-number">#${o.orderNumber} · ${escapeHtml(o.customerName)}</div><strong>${escapeHtml(o.pizzaName)}</strong></div><span class="slot-pill">${escapeHtml(o.slot)}</span></div><div class="order-meta">${escapeHtml(details)}${o.oil!=='None'?` · ${escapeHtml(o.oil)}`:''}</div><div class="status-row">${statuses.map(s=>`<button class="status-button ${o.status===s?'active':''}" data-order="${escapeHtml(o.id)}" data-status="${s}" type="button">${s}</button>`).join('')}</div></article>`;
+  return `<article class="order-card ${o.status==='Cancelled'?'cancelled-order':''} ${o.audit?'audit-order':''}" data-card-id="${escapeHtml(o.id)}"><div class="order-actions"><span class="time-order-label ${o.audit?'audit-label':''}">${o.audit?'AUDIT TEAM · READY BY':'TIME ORDER:'} ${escapeHtml(o.slot)}</span><button class="delete-order" data-delete-order="${escapeHtml(o.id)}" type="button">× Remove</button></div><div class="order-top"><div><div class="order-number">#${o.orderNumber} · ${escapeHtml(o.customerName)}</div><strong>${escapeHtml(o.pizzaName)}</strong></div><span class="slot-pill">${escapeHtml(o.slot)}</span></div><div class="order-meta">${escapeHtml(details)}${o.drink?` · Drink: ${escapeHtml(o.drink)}`:''}${o.oil!=='None'?` · ${escapeHtml(o.oil)}`:''}</div><div class="status-row">${statuses.map(s=>`<button class="status-button ${o.status===s?'active':''}" data-order="${escapeHtml(o.id)}" data-status="${s}" type="button">${s}</button>`).join('')}</div></article>`;
 }
 
 async function saveSettings(){
@@ -173,3 +173,15 @@ $('#logout').onclick=()=>{sessionStorage.removeItem('glamfestAdminPin');location
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&pin)refresh(true);});
 window.addEventListener('pageshow',event=>{if(event.persisted&&pin)refresh(true);});
 if(pin){$('#pin').value=pin;login();}else $('#pin').focus();
+
+const releaseAuditButton=$('#releaseAudit');
+if(releaseAuditButton)releaseAuditButton.onclick=async()=>{
+  if(!confirm('Release all unused audit places to staff? Confirmed audit orders will be kept.'))return;
+  releaseAuditButton.disabled=true;
+  try{
+    await request('/api/admin/settings',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({releaseUnusedAudit:true})});
+    await refresh(true);
+    show($('#adminMessage'),'Unused audit places released. Future slots are available where capacity allows.');
+  }catch(error){show($('#adminMessage'),error.message);}
+  finally{releaseAuditButton.disabled=false;}
+};
