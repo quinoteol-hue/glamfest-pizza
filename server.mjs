@@ -16,7 +16,12 @@ const DEFAULT_SERVICE = {serviceStart:'12:00',serviceEnd:'14:30',slotMinutes:3,p
 // Audit team: their pizzas are all ready together at the start of their break.
 // The kitchen cooking time just before the break (one pizza per slot) is kept free of staff bookings.
 const DEFAULT_AUDIT = {auditEnabled:true,auditBreakStart:'13:00',auditBreakMinutes:40,auditPizzas:15};
-const TOPPINGS = ['Pepperoni','Ham','Mushrooms','Red onion','White onion','Red pepper','Yellow pepper','Green pepper','Black olives','Pineapple','Jalapeños','Chillies'];
+const TOPPINGS = ['Pepperoni','Ham','Mushrooms','Red onion','White onion','Red pepper','Yellow pepper','Green pepper','Orange pepper','Sweetcorn','Black olives','Pineapple','Jalapeños','Chillies'];
+const DRINKS = ['Orange Tango','Apple Tango','Coke Zero','Diet Coke'];
+const CANS_PER_DRINK = 20;
+function drinkChoices(orders){
+  return DRINKS.map(name=>({name,remaining:Math.max(0,CANS_PER_DRINK-orders.filter(order=>order.drink===name).length)}));
+}
 const OILS = ['None'];
 const SPECIALS = {
   resus:{name:'Resus Pizza',toppings:['Pepperoni','Jalapeños','Chillies'],oil:'None'},
@@ -102,10 +107,13 @@ function normaliseOrder(body,settings){
   let slot;
   if(audit){if(!settings.auditEnabled)throw new Error('Audit team ordering is closed. Please choose a staff collection time.');slot=settings.auditBreakStart;}
   else{slot=cleanText(body.slot,5);if(!allSlots(settings).includes(slot))throw new Error(`Choose an available collection time between ${settings.serviceStart} and ${settings.serviceEnd}.`);}
-  return{customerName,pizzaName,specialKey:SPECIALS[specialKey]?specialKey:'',base:'standard',toppings,oil,slot,audit};
+  const drink=cleanText(body.drink,30);
+  if(drink&&!DRINKS.includes(drink))throw new Error('Choose an available drink.');
+  return{drink,customerName,pizzaName,specialKey:SPECIALS[specialKey]?specialKey:'',base:'standard',toppings,oil,slot,audit};
 }
 // Checks that an order (new or reopened) still fits. `active` must not include the order itself.
 function assertFits(order,active,settings){
+  if(order.drink&&!drinkChoices(active).some(choice=>choice.name===order.drink&&choice.remaining>0))throw new Error('That drink has run out. Please choose another drink.');
   if(slotHasPassed(order.slot))throw new Error('That collection time has passed. Please choose a future time.');
   if(active.length>=settings.maxPizzas)throw new Error(`All ${settings.maxPizzas} pizzas have now been reserved.`);
   if(order.audit){
@@ -131,7 +139,7 @@ const server=http.createServer(async(req,res)=>{
     const store=await readStore(),active=activeOrders(store),unavailable=new Set(store.settings.unavailableIngredients),prep=auditPrepSlots(store.settings);
     const perSlot={};for(const o of active)if(!o.audit)perSlot[o.slot]=(perSlot[o.slot]||0)+1;
     const usedSlots=[...new Set([...Object.keys(perSlot).filter(k=>perSlot[k]>=store.settings.pizzasPerSlot),...prep,...allSlots(store.settings).filter(slot=>slotHasPassed(slot))])];
-    return sendJson(res,200,{toppings:TOPPINGS.filter(i=>!unavailable.has(i)),oils:OILS.filter(i=>i==='None'||!unavailable.has(i)),specials:SPECIALS,unavailableSpecials:unavailableSpecials(store.settings),slots:allSlots(store.settings),serviceStart:store.settings.serviceStart,serviceEnd:store.settings.serviceEnd,pizzasPerSlot:store.settings.pizzasPerSlot,slotMinutes:store.settings.slotMinutes,usedSlots,maxPizzas:store.settings.maxPizzas,currentCount:active.length,remaining:Math.max(0,store.settings.maxPizzas-active.length),audit:auditInfo(store.settings,active),capacity:capacityInfo(store.settings)});
+    return sendJson(res,200,{drinks:drinkChoices(active),toppings:TOPPINGS.filter(i=>!unavailable.has(i)),oils:OILS.filter(i=>i==='None'||!unavailable.has(i)),specials:SPECIALS,unavailableSpecials:unavailableSpecials(store.settings),slots:allSlots(store.settings),serviceStart:store.settings.serviceStart,serviceEnd:store.settings.serviceEnd,pizzasPerSlot:store.settings.pizzasPerSlot,slotMinutes:store.settings.slotMinutes,usedSlots,maxPizzas:store.settings.maxPizzas,currentCount:active.length,remaining:Math.max(0,store.settings.maxPizzas-active.length),audit:auditInfo(store.settings,active),capacity:capacityInfo(store.settings)});
   }
   if(req.method==='GET'&&pathname==='/api/qr'){const configured=cleanText(process.env.PUBLIC_URL,300),origin=configured||`${req.headers['x-forwarded-proto']||'http'}://${req.headers.host}`,qr=u=>`https://api.qrserver.com/v1/create-qr-code/?size=900x900&ecc=H&data=${encodeURIComponent(u)}`,base=origin.replace(/\/+$/,''),auditUrl=`${base}/audit`;return sendJson(res,200,{url:origin,imageUrl:qr(origin),auditUrl,auditImageUrl:qr(auditUrl)});}
   if(req.method==='POST'&&pathname==='/api/orders'){
@@ -141,6 +149,7 @@ const server=http.createServer(async(req,res)=>{
   if(pathname==='/api/admin/settings'&&req.method==='PATCH'){
     if(!isAdmin(req,url))return sendJson(res,401,{error:'Incorrect admin PIN.'});
     try{const payload=await bodyJson(req);const settings=await mutateStore(store=>{const active=activeOrders(store),next=normaliseSettings({...store.settings,...payload});
+      if(payload.releaseUnusedAudit===true)next.auditPizzas=active.filter(order=>order.audit).length;
       if(next.maxPizzas<active.length)throw new Error(`Capacity cannot be below the ${active.length} active orders already booked.`);
       const auditBooked=active.filter(o=>o.audit);
       if(auditBooked.length&&(!next.auditEnabled||next.auditPizzas<auditBooked.length))throw new Error(`There are ${auditBooked.length} active audit team orders. Cancel them first, or keep at least that many audit pizzas.`);
