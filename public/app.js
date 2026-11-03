@@ -94,7 +94,7 @@ function choosePizza(key){
   hideMessage();updateReview();
 }
 function selection(){if(state.specialKey){const s=state.config.specials[state.specialKey];return{name:s.name,toppings:s.toppings,oil:s.oil};}return{name:'Build Your Own',toppings:state.toppings,oil:state.oil};}
-function selectedBase(){return state.specialKey?'standard':($('#pizzaBase')?.value||'standard');}
+function selectedBase(){return state.specialKey?'standard':($('input[name=pizzaBase]:checked')?.value||$('#pizzaBase')?.value||'standard');}
 function updateReview(){if(!state.config)return;const name=$('#customerName').value.trim()||'Not entered',slot=AUDIT_MODE?`${state.config.audit?.breakStart||''} (audit break)`:($('#slot').value||'Not selected'),selected=document.querySelector('.pizza-card.selected');if(!selected){$('#review').innerHTML='<p>Choose your pizza to see the order summary.</p>';return;}const pizza=selection(),toppingText=pizza.toppings.length?pizza.toppings.join(', '):'Cheese only';$('#review').innerHTML=`<div class="review-row"><b>Collector</b><span>${escapeHtml(name)}</span></div><div class="review-row"><b>Pizza</b><span>${escapeHtml(pizza.name)}</span></div><div class="review-row"><b>Base sauce</b><span>${selectedBase()==='barbecue'?'Barbecue sauce':'Tomato sauce'}</span></div><div class="review-row"><b>Toppings</b><span>${escapeHtml(toppingText)}</span></div><div class="review-row"><b>Drink</b><span>${escapeHtml($('#drink')?.value||'No drink')}</span></div><div class="review-row"><b>Collection</b><span>${escapeHtml(slot)}</span></div>`;}
 
 function showOrderForm({scroll=true}={}){
@@ -117,6 +117,7 @@ document.addEventListener('change',event=>{
 });
 document.querySelectorAll('.pizza-card').forEach(button=>button.addEventListener('click',()=>choosePizza(button.dataset.special)));
 ['customerName','slot','drink','pizzaBase'].forEach(id=>$('#'+id)?.addEventListener('input',updateReview));
+document.querySelectorAll('input[name=pizzaBase]').forEach(input=>input.addEventListener('change',updateReview));
 $('#confirm').addEventListener('change',hideMessage);
 
 form.addEventListener('submit',async event=>{
