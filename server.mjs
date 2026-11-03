@@ -109,7 +109,7 @@ function normaliseOrder(body,settings){
   else{slot=cleanText(body.slot,5);if(!allSlots(settings).includes(slot))throw new Error(`Choose an available collection time between ${settings.serviceStart} and ${settings.serviceEnd}.`);}
   const drink=cleanText(body.drink,30);
   if(drink&&!DRINKS.includes(drink))throw new Error('Choose an available drink.');
-  const base=body.base||'standard';
+  const base=SPECIALS[specialKey]?'standard':(body.base||'standard');
   if(base!=='standard'&&base!=='barbecue')throw new Error('Choose tomato or barbecue sauce.');
   return{drink,customerName,pizzaName,specialKey:SPECIALS[specialKey]?specialKey:'',base,toppings,oil,slot,audit};
 }
