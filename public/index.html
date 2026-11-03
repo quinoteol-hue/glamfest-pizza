@@ -8,6 +8,16 @@
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/enhancements.css">
   <link rel="stylesheet" href="/pizzapop.css?v=6">
+  <style>
+    .base-picker{border:0;padding:0;margin:0 0 1.25rem;min-inline-size:0}
+    .base-picker legend{font-weight:800;font-size:1.15rem;margin-bottom:.65rem}
+    .base-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr));gap:.65rem}
+    .base-options label{display:flex;align-items:center;gap:.65rem;min-height:58px;padding:.65rem .85rem;border:2px solid currentColor;border-radius:12px;cursor:pointer;font-size:1rem}
+    .base-options input{width:1.15rem;height:1.15rem;flex:none;accent-color:currentColor}
+    .tomato-base{background:#fff1ec;color:#8d2328}.bbq-base{background:#fff3df;color:#633813}
+    .base-options label:has(input:checked){box-shadow:inset 0 0 0 2px currentColor}
+    .base-options label:focus-within{outline:2px solid #20315b;outline-offset:3px}
+  </style>
 </head>
 <body>
   <div class="top-bar"><span class="top-bar-title">🍕 Pizza &amp; Pop</span><a class="kitchen-top-link" href="/admin">🔐 Kitchen Admin</a></div>
@@ -20,7 +30,7 @@
         <button type="button" class="pizza-card" data-special="paeds"><span class="pizza-icon">🍍</span><strong>Paeds Pizza</strong><small>Tomato sauce, cheese, ham and pineapple</small></button>
         <button type="button" class="pizza-card" data-special="triage"><span class="pizza-icon">🫑</span><strong>Triage Pizza</strong><small>Tomato sauce, cheese, mushrooms, red onion, yellow pepper and green pepper</small></button>
         <button type="button" class="pizza-card" data-special="custom"><span class="pizza-icon">✨</span><strong>Build Your Own</strong><small>Choose up to four toppings</small></button>
-      </div><div id="customBuilder" class="builder hidden"><h3>Choose up to 4 toppings</h3><p class="muted"><span id="toppingCount">0</span>/4 selected</p><div id="toppings" class="choice-grid"></div><label for="pizzaBase">Base sauce</label><select id="pizzaBase" name="pizzaBase"><option value="standard">Tomato sauce</option><option value="barbecue">Barbecue sauce</option></select></div></div></section>
+      </div><div id="customBuilder" class="builder hidden"><fieldset class="base-picker"><legend>1. First, choose your base sauce</legend><div class="base-options"><label class="tomato-base"><input type="radio" name="pizzaBase" value="standard" checked><strong>Tomato sauce</strong></label><label class="bbq-base"><input type="radio" name="pizzaBase" value="barbecue"><strong>Barbecue sauce</strong></label></div></fieldset><h3>2. Choose up to 4 toppings</h3><p class="muted"><span id="toppingCount">0</span>/4 selected</p><div id="toppings" class="choice-grid"></div></div></div></section>
       
       <section class="step-card"><div class="step-number">3</div><div class="step-content"><h2 id="slotTitle">Choose a collection time</h2><div id="staffSlot"><label for="slot">Available slots</label><select id="slot" name="slot" required><option value="">Loading times…</option></select><p class="muted" id="slotHelp">Collection runs from 12:00 to 14:30.</p></div><div id="auditSlot" class="audit-slot hidden"><div class="audit-time" id="auditTime">--:--</div><p id="auditSlotText">Your pizza will be ready for the start of your break.</p></div></div></section>
       <section class="step-card"><div class="step-number">4</div><div class="step-content"><h2>Choose your drink</h2><label for="drink">One free can per pizza</label><select id="drink" name="drink"><option value="">No drink</option></select></div></section>
@@ -30,6 +40,6 @@
     <section id="success" class="success hidden" aria-live="polite"><div class="official-brand success-brand"></div><div class="success-icon">✓</div><h2>Your pizza is booked!</h2><p class="pop-note">Pick up your soft drink when you collect. Grazie, ED team!</p><div id="successDetails"></div><div class="donate-block success-donate"><p class="donate-ask">Enjoying your pizza? Help us keep wellbeing days going.</p><a class="donate-button big" href="https://paymentrequest.natwestpayit.com/reusable-links/4c1f2b55-f1cd-496e-abe3-6e354f456e33" target="_blank" rel="noopener noreferrer"><span class="donate-heart">❤️</span><span><strong>Donate to the ED Wellbeing Fund</strong><small>Tap here – any amount, optional</small></span><span class="donate-arrow">→</span></a><p class="donate-note">Donations support ED wellbeing activities. The payment page shows Matthew Lyons as the recipient.</p></div><button id="anotherOrder" class="secondary" type="button">Order another pizza</button></section>
   </main>
   <footer><div class="footer-cols"><div><span class="footer-kicker">Funded by</span><strong>Doctor Mo &amp; the Wellbeing Team</strong></div><div><span class="footer-kicker">❤️ We accept donations</span><strong>to help us grow future wellbeing activities for our ED team</strong><a class="donate-button" href="https://paymentrequest.natwestpayit.com/reusable-links/4c1f2b55-f1cd-496e-abe3-6e354f456e33" target="_blank" rel="noopener noreferrer"><span class="donate-heart">❤️</span><span><strong>Donate to the ED Wellbeing Fund</strong><small>Tap here – any amount, optional</small></span><span class="donate-arrow">→</span></a></div></div><a class="kitchen-admin-link" href="/admin">🔐 Kitchen Admin</a></footer>
-  <script src="/app.js?v=11" defer></script>
+  <script src="/app.js?v=12" defer></script>
 </body>
 </html>
