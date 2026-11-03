@@ -26,7 +26,7 @@ const OILS = ['None'];
 const SPECIALS = {
   resus:{name:'Resus Pizza',toppings:['Pepperoni','Jalapeños','Chillies'],oil:'None'},
   paeds:{name:'Paeds Pizza',toppings:['Ham','Pineapple'],oil:'None'},
-  triage:{name:'Triage Pizza',toppings:['Mushrooms','Red onion','Yellow pepper','Green pepper'],oil:'None'}
+  triage:{name:'Triage Pizza',toppings:['Red pepper','Yellow pepper','Green pepper','Orange pepper'],oil:'None'}
 };
 let writeQueue=Promise.resolve();
 function cleanText(value,max=80){return String(value??'').trim().replace(/\s+/g,' ').slice(0,max);}
