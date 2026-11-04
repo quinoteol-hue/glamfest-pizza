@@ -4,72 +4,125 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#1d2f5c">
-<title>Pizza &amp; Pop – Ready to collect</title>
+<title>Pizza &amp; Pop – Pizza status</title>
 <style>
-:root{--navy:#1d2f5c;--red:#a51f24;--cream:#fbf5e6;--green:#2e8b3e;--gold:#f2b740}
+:root{--navy:#1d2f5c;--navy2:#26396b;--red:#a51f24;--green:#2e8b3e;--mint:#b9f5c4;--gold:#f2b740;--cream:#fbf5e6}
 *{box-sizing:border-box}
-html,body{margin:0;height:100%}
-body{font-family:Inter,ui-rounded,"Segoe UI",system-ui,sans-serif;background:var(--navy);color:#fff;display:flex;flex-direction:column}
-header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 24px;background:var(--red);border-bottom:6px solid #fff}
-header h1{margin:0;font-family:Georgia,"Times New Roman",serif;font-style:italic;font-size:clamp(1.6rem,4vw,3rem)}
-.clock{font-weight:900;font-size:clamp(1.2rem,3vw,2.2rem);font-variant-numeric:tabular-nums}
-main{flex:1;display:grid;grid-template-columns:2fr 1fr;gap:18px;padding:18px;min-height:0}
-section{background:rgba(255,255,255,.06);border-radius:22px;padding:16px 18px;display:flex;flex-direction:column;min-height:0}
-h2{margin:0 0 12px;font-size:clamp(1.3rem,3vw,2.4rem);display:flex;align-items:center;gap:12px}
-.count{background:#fff;color:var(--navy);border-radius:999px;padding:2px 14px;font-size:.7em}
-.ready h2{color:#b9f5c4}
-.list{display:grid;gap:12px;overflow:hidden;align-content:start}
-.ready .list{grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
-.card{border-radius:18px;padding:14px 18px;display:flex;align-items:center;gap:16px}
-.ready .card{background:var(--green);border:4px solid #b9f5c4;animation:pop .6s ease-out}
-.preparing .card{background:rgba(255,255,255,.12);border:2px solid rgba(255,255,255,.3)}
-.num{font-size:clamp(2rem,5vw,4rem);font-weight:1000;line-height:1;font-variant-numeric:tabular-nums}
-.preparing .num{font-size:clamp(1.4rem,3vw,2.4rem)}
-.who strong{display:block;font-size:clamp(1.3rem,3vw,2.4rem);line-height:1.1}
-.who small{display:block;font-size:clamp(.9rem,1.6vw,1.2rem);opacity:.9}
-.preparing .who strong{font-size:clamp(1.1rem,2.2vw,1.7rem)}
-.tag{display:inline-block;background:var(--gold);color:#3a2a00;border-radius:999px;padding:1px 8px;font-size:.8rem;font-weight:900;margin-left:6px}
-.empty{opacity:.75;font-size:clamp(1.1rem,2.4vw,1.8rem);margin-top:8px}
-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 24px;font-size:1rem;opacity:.9}
-button{font:inherit;font-weight:800;border-radius:999px;border:2px solid #fff;background:transparent;color:#fff;padding:8px 16px;cursor:pointer}
+html,body{margin:0;min-height:100%}
+body{font-family:Inter,ui-rounded,"Segoe UI",system-ui,sans-serif;background:var(--navy);color:#fff;display:flex;flex-direction:column;min-height:100vh}
+a{color:inherit}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px;background:var(--red);border-bottom:5px solid #fff;flex-wrap:wrap}
+header h1{margin:0;font-family:Georgia,"Times New Roman",serif;font-style:italic;font-size:clamp(1.4rem,4vw,2.8rem)}
+.head-right{display:flex;align-items:center;gap:12px}
+.clock{font-weight:900;font-size:clamp(1.1rem,3vw,2rem);font-variant-numeric:tabular-nums}
+.back{font-weight:800;text-decoration:none;border:2px solid #fff;border-radius:999px;padding:6px 12px;font-size:.9rem;white-space:nowrap}
+.finished{display:none;background:var(--gold);color:#3a2a00;text-align:center;font-weight:900;padding:10px 16px}
+/* Your pizza (this phone's orders) + lookup */
+.mine{display:none;margin:14px 16px 0;background:#fff;color:var(--navy);border-radius:20px;padding:14px 16px;border:4px solid var(--gold)}
+.mine h2{margin:0 0 8px;font-size:1.2rem}
+.mine-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1.5px solid #eee}
+.mine-item:first-of-type{border-top:0}
+.mine-num{font-size:1.8rem;font-weight:1000;min-width:3.2ch}
+.mine-txt strong{display:block;font-size:1.15rem}
+.mine-txt small{display:block;color:#5c6378;font-weight:700}
+.pill{margin-left:auto;border-radius:999px;padding:6px 12px;font-weight:900;white-space:nowrap}
+.pill.Pending{background:#fff4d6;color:#7a5600}.pill.Preparing{background:#ffe6d6;color:#8a3b00}.pill.Ready{background:var(--green);color:#fff;animation:pulse 1.4s ease-in-out infinite}.pill.Collected{background:#eee;color:#555}.pill.Cancelled{background:#fdecec;color:var(--red)}
+.lookup{display:flex;gap:8px;align-items:center;margin:14px 16px 0;flex-wrap:wrap}
+.lookup label{font-weight:800}
+.lookup input{width:120px;min-height:42px;border-radius:12px;border:2px solid rgba(255,255,255,.6);background:rgba(255,255,255,.12);color:#fff;font:inherit;font-weight:800;font-size:1.1rem;padding:6px 10px}
+.lookup input::placeholder{color:rgba(255,255,255,.6)}
+.lookup output{font-weight:800}
+/* Board */
+main{flex:1;display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:14px;padding:14px 16px}
+section{background:rgba(255,255,255,.07);border-radius:20px;padding:14px;display:flex;flex-direction:column;min-width:0}
+h2.col{margin:0 0 10px;font-size:clamp(1.2rem,2.6vw,2.1rem);display:flex;align-items:center;gap:10px}
+.count{background:#fff;color:var(--navy);border-radius:999px;padding:1px 12px;font-size:.65em}
+.col-hint{margin:-4px 0 10px;opacity:.8;font-size:.9rem}
+.ready h2{color:var(--mint)}
+.list{display:grid;gap:10px;align-content:start}
+.ready .list{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+.card{border-radius:16px;padding:10px 14px;display:flex;align-items:center;gap:14px;scroll-margin:90px}
+.ready .card{background:var(--green);border:3px solid var(--mint);animation:pop .6s ease-out}
+.oven .card{background:rgba(255,140,60,.18);border:2px solid rgba(255,170,110,.6)}
+.received .card{background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.25)}
+.card.me{outline:4px solid var(--gold);outline-offset:2px}
+.card.found{outline:4px solid #fff;outline-offset:2px;animation:flash 1s ease-in-out 3}
+.num{font-size:clamp(1.6rem,4vw,3.4rem);font-weight:1000;line-height:1;font-variant-numeric:tabular-nums}
+.oven .num,.received .num{font-size:clamp(1.3rem,2.6vw,2.2rem)}
+.who strong{display:block;font-size:clamp(1.1rem,2.6vw,2rem);line-height:1.1}
+.who small{display:block;font-size:clamp(.85rem,1.4vw,1.05rem);opacity:.9}
+.tag{display:inline-block;background:var(--gold);color:#3a2a00;border-radius:999px;padding:1px 8px;font-size:.75rem;font-weight:900;margin-left:6px;vertical-align:middle}
+.empty{opacity:.75;font-size:clamp(1rem,2vw,1.4rem);margin:4px 0}
+footer{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 18px 14px;font-size:.95rem;opacity:.9;flex-wrap:wrap}
+button{font:inherit;font-weight:800;border-radius:999px;border:2px solid #fff;background:transparent;color:#fff;padding:7px 14px;cursor:pointer}
 button.on{background:#fff;color:var(--navy)}
 .offline{color:#ffd0d0;font-weight:800}
-.flash{animation:flash 1.2s ease-in-out 3}
 @keyframes pop{from{transform:scale(.85);opacity:.3}to{transform:none;opacity:1}}
-@keyframes flash{50%{background:var(--green)}}
-@media(max-width:800px){main{grid-template-columns:1fr}.ready .list{grid-template-columns:1fr}}
+@keyframes flash{50%{background:var(--gold)}}
+@keyframes pulse{50%{box-shadow:0 0 0 6px rgba(46,139,62,.3)}}
+@media(max-width:900px){main{grid-template-columns:1fr}.ready .list{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-<header><h1>🍕 Pizza &amp; Pop – Ready to collect</h1><div class="clock" id="clock">--:--</div></header>
+<header><h1>🍕 Pizza status</h1><div class="head-right"><a class="back" href="/">← Order a pizza</a><div class="clock" id="clock">--:--</div></div></header>
+<div class="finished" id="finished">🏁 Pizza day has finished – thank you, ED team!</div>
+<div class="mine" id="mine"><h2>Your pizza</h2><div id="mineList"></div></div>
+<div class="lookup"><label for="find">Find an order number:</label><input id="find" inputmode="numeric" placeholder="e.g. 12"><output id="findResult"></output></div>
 <main>
-  <section class="ready"><h2>✅ Ready <span class="count" id="readyCount">0</span></h2><div class="list" id="readyList"></div></section>
-  <section class="preparing"><h2>🔥 In the oven <span class="count" id="prepCount">0</span></h2><div class="list" id="prepList"></div></section>
+  <section class="ready"><h2 class="col">✅ Ready to collect <span class="count" id="readyCount">0</span></h2><p class="col-hint">Come to the pizza table</p><div class="list" id="readyList"></div></section>
+  <section class="oven"><h2 class="col">🔥 In the oven <span class="count" id="ovenCount">0</span></h2><p class="col-hint">Being made now</p><div class="list" id="ovenList"></div></section>
+  <section class="received"><h2 class="col">📝 Received <span class="count" id="recCount">0</span></h2><p class="col-hint">Waiting for its time</p><div class="list" id="recList"></div></section>
 </main>
 <footer><span id="status">Connecting…</span><button id="sound" type="button">🔇 Tap to turn on sound</button></footer>
 <script>
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-let seen=null,audio=null,soundOn=false;
+const LABEL={Pending:'📝 Received',Preparing:'🔥 In the oven',Ready:'✅ READY – collect now',Collected:'😋 Collected',Cancelled:'✖️ Cancelled'};
+let seen=null,audio=null,soundOn=false,lastData=null;
+// Orders placed on this phone (saved by the ordering page).
+function myOrders(){try{return JSON.parse(localStorage.getItem('pizzaPopOrders')||'[]').filter(o=>o&&o.id);}catch{return [];}}
 $('#sound').onclick=()=>{try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();audio.resume();soundOn=!soundOn;$('#sound').classList.toggle('on',soundOn);$('#sound').textContent=soundOn?'🔔 Sound on':'🔇 Tap to turn on sound';if(soundOn)chime();}catch{}};
 function chime(){if(!soundOn||!audio)return;const t=audio.currentTime;[659,880,1175].forEach((f,i)=>{const o=audio.createOscillator(),g=audio.createGain();o.frequency.value=f;g.gain.setValueAtTime(.0001,t+i*.18);g.gain.exponentialRampToValueAtTime(.35,t+i*.18+.02);g.gain.exponentialRampToValueAtTime(.0001,t+i*.18+.5);o.connect(g).connect(audio.destination);o.start(t+i*.18);o.stop(t+i*.18+.55);});}
-const card=o=>`<div class="card"><div class="num">#${esc(o.orderNumber)}</div><div class="who"><strong>${esc(o.name)}${o.audit?'<span class="tag">AUDIT</span>':''}</strong><small>${esc(o.pizzaName)}</small></div></div>`;
+function card(o,mineSet){const me=mineSet.has(o.orderNumber);return `<div class="card${me?' me':''}" id="order-${esc(o.orderNumber)}"><div class="num">#${esc(o.orderNumber)}</div><div class="who"><strong>${esc(o.name)}${o.audit?'<span class="tag">AUDIT</span>':''}${me?'<span class="tag">YOU</span>':''}</strong><small>${esc(o.pizzaName)}${o.slot?` · ${esc(o.slot)}`:''}</small></div></div>`;}
+function fill(id,list,mineSet,emptyText){$(id).innerHTML=list.length?list.map(o=>card(o,mineSet)).join(''):`<p class="empty">${emptyText}</p>`;}
+async function renderMine(){
+  const mine=myOrders();if(!mine.length){$('#mine').style.display='none';return;}
+  const rows=[];
+  for(const t of mine.slice(-5)){
+    try{const r=await fetch(`/api/orders/${encodeURIComponent(t.id)}/status`,{cache:'no-store'});if(!r.ok)continue;const o=(await r.json()).order;
+      if(o.status==='Collected'&&Date.now()-new Date(o.updatedAt).getTime()>2*3600e3)continue;
+      rows.push(`<div class="mine-item"><div class="mine-num">#${esc(o.orderNumber)}</div><div class="mine-txt"><strong>${esc(o.pizzaName)}</strong><small>${o.audit?'Audit break · ':''}${esc(o.slot)}</small></div><span class="pill ${esc(o.status)}">${LABEL[o.status]||esc(o.status)}</span></div>`);}catch{}
+  }
+  $('#mine').style.display=rows.length?'block':'none';$('#mineList').innerHTML=rows.join('');
+}
+function findOrder(){
+  const n=$('#find').value.replace(/\D/g,'');document.querySelectorAll('.card.found').forEach(c=>c.classList.remove('found'));
+  if(!n){$('#findResult').textContent='';return;}
+  const el=document.getElementById('order-'+n);
+  if(el){el.classList.add('found');el.scrollIntoView({behavior:'smooth',block:'center'});const col=el.closest('section').classList.contains('ready')?'✅ Ready to collect':el.closest('section').classList.contains('oven')?'🔥 In the oven':'📝 Received';$('#findResult').textContent=`#${n}: ${col}`;}
+  else $('#findResult').textContent=`#${n} isn't on the board – it may already be collected.`;
+}
+$('#find').addEventListener('input',findOrder);
 async function load(){
   try{
-    const r=await fetch('/api/board',{cache:'no-store'});if(!r.ok)throw 0;const d=await r.json();
-    const ready=[...d.ready].reverse();   // newest first
-    $('#readyList').innerHTML=ready.length?ready.map(card).join(''):'<p class="empty">Nothing waiting – pizzas appear here as soon as they are ready.</p>';
-    $('#prepList').innerHTML=d.preparing.length?d.preparing.map(card).join(''):'<p class="empty">Nothing in the oven right now.</p>';
-    $('#readyCount').textContent=d.ready.length;$('#prepCount').textContent=d.preparing.length;
+    const r=await fetch('/api/board',{cache:'no-store'});if(!r.ok)throw 0;const d=await r.json();lastData=d;
+    const mineSet=new Set(myOrders().map(o=>Number(o.orderNumber)));
+    fill('#readyList',[...d.ready].reverse(),mineSet,'Nothing waiting – pizzas appear here as soon as they are ready.');
+    fill('#ovenList',d.preparing,mineSet,'Nothing in the oven right now.');
+    fill('#recList',(d.received||[]).sort((a,b)=>String(a.slot).localeCompare(String(b.slot))),mineSet,'No orders waiting.');
+    $('#readyCount').textContent=d.ready.length;$('#ovenCount').textContent=d.preparing.length;$('#recCount').textContent=(d.received||[]).length;
+    $('#finished').style.display=d.eventFinished?'block':'none';
     const ids=new Set(d.ready.map(o=>o.orderNumber));
-    if(seen&&[...ids].some(n=>!seen.has(n))){chime();$('.ready').classList.remove('flash');void $('.ready').offsetWidth;$('.ready').classList.add('flash');}
+    if(seen&&[...ids].some(n=>!seen.has(n)))chime();
     seen=ids;
-    $('#status').textContent=d.eventFinished?'🏁 Pizza day finished – thank you, ED team!':'Live · updates every 5 seconds';$('#status').classList.remove('offline');
+    if($('#find').value)findOrder();
+    $('#status').textContent='Live · updates every 5 seconds';$('#status').classList.remove('offline');
   }catch{$('#status').textContent='Reconnecting…';$('#status').classList.add('offline');}
+  renderMine();
 }
 function tick(){$('#clock').textContent=new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});}
 tick();setInterval(tick,10000);load();setInterval(load,5000);
-// Keep the screen awake where supported.
+// Keep a TV/tablet screen awake where supported.
 if('wakeLock' in navigator){const lock=()=>navigator.wakeLock.request('screen').catch(()=>{});lock();document.addEventListener('visibilitychange',()=>{if(!document.hidden)lock();});}
 </script>
 </body>

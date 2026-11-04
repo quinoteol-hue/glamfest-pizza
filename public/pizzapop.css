@@ -295,3 +295,15 @@ body.ready-alert{animation:readyFlash .8s ease-in-out 8}
 .group-later>summary{background:#eef2fb;color:var(--navy)}
 .group-later .order-card{opacity:.85}
 .later-tag{font-size:.8rem;font-weight:900;color:var(--navy);background:#eef2fb;border:1.5px solid #c9d3ec;border-radius:999px;padding:3px 10px;justify-self:start;margin:2px 0 -4px}
+
+/* ---- "Check my pizza" buttons on the customer page ---- */
+.top-links{display:flex;gap:8px;align-items:center}
+.status-top-link{color:var(--navy);background:#fff;text-decoration:none;font-weight:900;font-size:.85rem;border:2px solid #fff;border-radius:999px;padding:5px 12px;white-space:nowrap}
+.check-pizza{display:flex;align-items:center;gap:12px;text-align:left;text-decoration:none;max-width:460px;margin:14px auto 0;background:#fff;color:var(--navy);border:3px solid var(--navy);border-radius:16px;padding:12px 16px;box-shadow:0 5px 0 var(--navy)}
+.check-pizza>span:first-child{font-size:1.5rem}
+.check-pizza strong{display:block;font-size:1.05rem}
+.check-pizza small{display:block;font-weight:700;color:var(--muted)}
+.check-arrow{margin-left:auto;font-size:1.4rem;font-weight:900}
+.check-pizza:active{transform:translateY(4px);box-shadow:0 1px 0 var(--navy)}
+.soft-link-button{display:inline-block;margin:0 auto 12px;text-decoration:none;font-weight:900;color:var(--navy);border:2px solid var(--navy);border-radius:999px;padding:9px 16px}
+@media(max-width:400px){.top-bar-title{font-size:.95rem}.status-top-link,.kitchen-top-link{font-size:.78rem;padding:5px 9px}}

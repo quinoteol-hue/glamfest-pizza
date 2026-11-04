@@ -10,6 +10,14 @@ function escapeHtml(value){return String(value).replace(/[&<>'"]/g,c=>({'&':'&am
 function showMessage(text){message.textContent=text;message.classList.remove('hidden');message.scrollIntoView({behavior:'smooth',block:'center'});}
 function hideMessage(){message.classList.add('hidden');}
 
+// Hero date follows the pizza day date set on the kitchen board, e.g. "📅 Wednesday 4th November".
+function showEventDate(iso){
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||'');const pill=$('#datePill');if(!m||!pill)return;
+  const d=new Date(Date.UTC(+m[1],+m[2]-1,+m[3],12)),day=+m[3];
+  const suffix=(day%10===1&&day!==11)?'st':(day%10===2&&day!==12)?'nd':(day%10===3&&day!==13)?'rd':'th';
+  const weekday=d.toLocaleDateString('en-GB',{weekday:'long',timeZone:'UTC'}),month=d.toLocaleDateString('en-GB',{month:'long',timeZone:'UTC'});
+  pill.innerHTML=`📅 ${weekday} ${day}<sup>${suffix}</sup> ${month}`;
+}
 function applyEventFinished(finished){
   $('#eventClosed').classList.toggle('hidden',!finished);
   if(finished){form.classList.add('hidden');const hint=document.querySelector('#eventClosed .muted');let mine=[];try{mine=JSON.parse(localStorage.getItem('pizzaPopOrders')||'[]');}catch{}if(hint)hint.classList.toggle('hidden',!mine.length);}
@@ -24,6 +32,7 @@ async function loadConfig({preserveSelection=true}={}){
     if(!response.ok)throw new Error('Unable to load ordering information.');
     state.config=await response.json();
     applyEventFinished(state.config.eventFinished);
+    showEventDate(state.config.eventDate);
     renderChoices();
     renderDrinks();
     renderSlots(previousSlot);

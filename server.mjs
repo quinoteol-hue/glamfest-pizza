@@ -193,7 +193,7 @@ const server=http.createServer(async(req,res)=>{
     const store=await readStore(),active=activeOrders(store),unavailable=new Set(store.settings.unavailableIngredients),prep=auditPrepSlots(store.settings);
     const perSlot={};for(const o of active)if(!o.audit)perSlot[o.slot]=(perSlot[o.slot]||0)+1;
     const usedSlots=[...new Set([...Object.keys(perSlot).filter(k=>perSlot[k]>=store.settings.pizzasPerSlot),...prep,...allSlots(store.settings).filter(slot=>slotHasPassed(slot,undefined,store.settings.eventDate))])];
-    return sendJson(res,200,{drinks:drinkChoices(active,store.settings),toppings:TOPPINGS.filter(i=>!unavailable.has(i)),oils:OILS.filter(i=>i==='None'||!unavailable.has(i)),specials:SPECIALS,unavailableSpecials:unavailableSpecials(store.settings),eventFinished:store.settings.eventFinished,slots:allSlots(store.settings),serviceStart:store.settings.serviceStart,serviceEnd:store.settings.serviceEnd,pizzasPerSlot:store.settings.pizzasPerSlot,slotMinutes:store.settings.slotMinutes,usedSlots,maxPizzas:store.settings.maxPizzas,currentCount:active.length,remaining:Math.max(0,store.settings.maxPizzas-active.length),audit:auditInfo(store.settings,active),capacity:capacityInfo(store.settings)});
+    return sendJson(res,200,{drinks:drinkChoices(active,store.settings),toppings:TOPPINGS.filter(i=>!unavailable.has(i)),oils:OILS.filter(i=>i==='None'||!unavailable.has(i)),specials:SPECIALS,unavailableSpecials:unavailableSpecials(store.settings),eventFinished:store.settings.eventFinished,eventDate:store.settings.eventDate,slots:allSlots(store.settings),serviceStart:store.settings.serviceStart,serviceEnd:store.settings.serviceEnd,pizzasPerSlot:store.settings.pizzasPerSlot,slotMinutes:store.settings.slotMinutes,usedSlots,maxPizzas:store.settings.maxPizzas,currentCount:active.length,remaining:Math.max(0,store.settings.maxPizzas-active.length),audit:auditInfo(store.settings,active),capacity:capacityInfo(store.settings)});
   }
   if(req.method==='GET'&&pathname==='/api/qr'){const configured=cleanText(process.env.PUBLIC_URL,300),origin=configured||`${req.headers['x-forwarded-proto']||'http'}://${req.headers.host}`,qr=u=>`https://api.qrserver.com/v1/create-qr-code/?size=900x900&ecc=H&data=${encodeURIComponent(u)}`,base=origin.replace(/\/+$/,''),auditUrl=`${base}/audit`;return sendJson(res,200,{url:origin,imageUrl:qr(origin),auditUrl,auditImageUrl:qr(auditUrl)});}
   if(req.method==='POST'&&pathname==='/api/orders'){
@@ -245,7 +245,7 @@ const server=http.createServer(async(req,res)=>{
   if(req.method==='GET'&&pathname==='/api/push-key')return sendJson(res,200,{publicKey:vapidReady?vapidPublicKey:''});
   if(req.method==='GET'&&pathname==='/api/board'){
     const store=await readStore(),pick=status=>store.orders.filter(o=>o.status===status).sort((a,b)=>String(a.updatedAt).localeCompare(String(b.updatedAt))).map(o=>({orderNumber:o.orderNumber,name:firstName(o.customerName),pizzaName:o.pizzaName,slot:o.slot,audit:Boolean(o.audit),since:o.updatedAt}));
-    return sendJson(res,200,{ready:pick('Ready'),preparing:pick('Preparing'),eventFinished:store.settings.eventFinished});
+    return sendJson(res,200,{ready:pick('Ready'),preparing:pick('Preparing'),received:pick('Pending'),eventFinished:store.settings.eventFinished});
   }
   if(req.method!=='GET')return sendJson(res,405,{error:'Method not allowed.'});
   if(pathname==='/ready'||pathname==='/ready/')return sendFile(res,path.join(__dirname,'public','ready.html'));
