@@ -185,3 +185,5 @@ body.ready-alert{animation:readyFlash .8s ease-in-out 8}
 .whatsapp-button.pulse{animation:waPulse 1.4s ease-in-out infinite}
 @keyframes waPulse{50%{box-shadow:0 0 0 6px rgba(37,211,102,.35)}}
 .notify-chip{display:inline-flex;align-items:center;background:#eef2ff;color:var(--navy);border:2px solid var(--navy);border-radius:999px;padding:4px 10px;font-weight:800;font-size:.85rem}
+.message.ok{border-color:var(--it-green);background:#e3f4e6;color:#1f6b2d}
+.settings-message{margin-top:10px}

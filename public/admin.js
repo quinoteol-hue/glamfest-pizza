@@ -138,13 +138,22 @@ function orderCard(o){
   return `<article class="order-card ${o.status==='Cancelled'?'cancelled-order':''} ${o.audit?'audit-order':''}" data-card-id="${escapeHtml(o.id)}"><div class="order-actions"><span class="time-order-label ${o.audit?'audit-label':''}">${o.audit?'AUDIT TEAM · READY BY':'TIME ORDER:'} ${escapeHtml(o.slot)}</span><button class="delete-order" data-delete-order="${escapeHtml(o.id)}" type="button">× Remove</button></div><div class="order-top"><div><div class="order-number">#${o.orderNumber} · ${escapeHtml(o.customerName)}</div><strong>${escapeHtml(o.pizzaName)}</strong></div><span class="slot-pill">${escapeHtml(o.slot)}</span></div>${o.phone||o.notify?`<div class="contact-row">${o.phone?`<a class="whatsapp-button ${o.status==='Ready'?'pulse':''}" href="${whatsappLink(o)}" target="_blank" rel="noopener">💬 WhatsApp ${escapeHtml(o.phone.replace(/^44/,'0'))}</a>`:''}${o.notify?'<span class="notify-chip">🔔 Pop-up alert on</span>':''}</div>`:''}<div class="order-meta">${o.base==='barbecue'?'Barbecue sauce':'Tomato sauce'} · ${escapeHtml(details)} · Drink: ${escapeHtml(o.drink||'No drink')}${o.oil!=='None'?` · ${escapeHtml(o.oil)}`:''}</div><div class="status-row">${statuses.map(s=>`<button class="status-button ${o.status===s?'active':''}" data-order="${escapeHtml(o.id)}" data-status="${s}" type="button">${s}</button>`).join('')}</div></article>`;
 }
 
+// Show the save result right next to the Save button (the top-of-page message was off-screen).
+function settingsResult(text,ok){
+  let box=$('#settingsMessage');
+  if(!box){box=document.createElement('div');box.id='settingsMessage';$('#saveSettings').insertAdjacentElement('afterend',box);}
+  box.className='message settings-message '+(ok?'ok':'');box.textContent=text;box.classList.remove('hidden');
+  box.scrollIntoView({behavior:'smooth',block:'nearest'});
+  show($('#adminMessage'),text);$('#adminMessage').className='message '+(ok?'ok':'');
+}
 async function saveSettings(){
   const unavailable=[...document.querySelectorAll('#ingredientControls input:not(:checked)')].map(i=>i.value);
   try{
     const data=await request('/api/admin/settings',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({eventDate:$('#eventDate')?$('#eventDate').value:undefined,maxPizzas:Number($('#maxPizzas').value),serviceStart:$('#serviceStart').value,serviceEnd:$('#serviceEnd').value,pizzasPerSlot:Number($('#pizzasPerSlot').value),slotMinutes:Number($('#slotMinutes').value),auditEnabled:$('#auditEnabled').checked,auditBreakStart:$('#auditBreakStart').value,auditBreakMinutes:Number($('#auditBreakMinutes').value),auditPizzas:Number($('#auditPizzas').value),unavailableIngredients:unavailable})});
     settings=data.settings;await refresh(true);renderSettings();render();
-    show($('#adminMessage'),'Kitchen availability saved. Customer options are updated immediately.');
-  }catch(error){show($('#adminMessage'),error.message);}
+    const booked=orders.filter(o=>o.status!=='Cancelled').length;
+    settingsResult(booked>=settings.maxPizzas?`✓ Saved. Stock limit is ${settings.maxPizzas} and ${booked} pizzas are already booked, so no new orders will be taken. Existing orders are kept.`:`✓ Saved. Customers see the changes straight away (${settings.maxPizzas-booked} pizzas left to order).`,true);
+  }catch(error){settingsResult('Not saved: '+error.message,false);}
 }
 
 async function refresh(silent=false){

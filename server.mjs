@@ -190,7 +190,7 @@ const server=http.createServer(async(req,res)=>{
     if(!isAdmin(req,url))return sendJson(res,401,{error:'Incorrect admin PIN.'});
     try{const payload=await bodyJson(req);if(payload&&'eventDate' in payload&&!/^\d{4}-\d{2}-\d{2}$/.test(String(payload.eventDate)))throw new Error('Choose the pizza day date.');const settings=await mutateStore(store=>{const active=activeOrders(store),next=normaliseSettings({...store.settings,...payload});
       if(payload.releaseUnusedAudit===true)next.auditPizzas=active.filter(order=>order.audit).length;
-      if(next.maxPizzas<active.length)throw new Error(`Capacity cannot be below the ${active.length} active orders already booked.`);
+      // A stock limit below the orders already booked is allowed: existing orders stay, new orders stop.
       const auditBooked=active.filter(o=>o.audit);
       if(auditBooked.length&&(!next.auditEnabled||next.auditPizzas<auditBooked.length))throw new Error(`There are ${auditBooked.length} active audit team orders. Cancel them first, or keep at least that many audit pizzas.`);
       if(auditBooked.length&&next.auditBreakStart!==store.settings.auditBreakStart){for(const o of auditBooked){o.slot=next.auditBreakStart;o.updatedAt=new Date().toISOString();}}
