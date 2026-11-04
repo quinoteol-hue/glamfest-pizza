@@ -1,3 +1,18 @@
+// In-page confirmation box. Browser pop-ups (confirm/prompt) are silently blocked in some phone
+// browsers (e.g. pages opened from WhatsApp, QR codes or NFC tags), which made buttons do nothing.
+function askConfirm({title,text,yes,danger}){
+  return new Promise(resolve=>{
+    const m=document.getElementById('confirmModal');
+    document.getElementById('confirmTitle').textContent=title;document.getElementById('confirmText').textContent=text;
+    const y=document.getElementById('confirmYes'),n=document.getElementById('confirmNo');
+    y.textContent=yes;y.className='primary'+(danger?' danger':'');
+    const done=v=>{m.classList.add('hidden');y.onclick=n.onclick=m.onclick=null;document.removeEventListener('keydown',esc);resolve(v);};
+    const esc=e=>{if(e.key==='Escape')done(false);};
+    y.onclick=()=>done(true);n.onclick=()=>done(false);m.onclick=e=>{if(e.target===m)done(false);};
+    document.addEventListener('keydown',esc);m.classList.remove('hidden');setTimeout(()=>n.focus(),30);
+  });
+}
+function notice(text,ok){const el=document.getElementById('adminMessage');show(el,text);el.className='message'+(ok?' ok':'');el.scrollIntoView({behavior:'smooth',block:'center'});}
 let drinkStock=[];
 const statuses=['Pending','Preparing','Ready','Collected','Cancelled'];
 const $=s=>document.querySelector(s);
@@ -43,6 +58,7 @@ function renderSettings(){
   $('#maxPizzas').value=settings.maxPizzas;
   for(const id of ['serviceStart','serviceEnd']){const field=$('#'+id),value=settings[id];if(value&&![...field.options].some(o=>o.value===value)){field.add(new Option(value+' (current)',value));}}
   if($('#eventDate'))$('#eventDate').value=settings.eventDate||'';
+  renderDrinkEditor();setTimeout(syncAuditFold,0);
   $('#serviceStart').value=settings.serviceStart||'';$('#serviceEnd').value=settings.serviceEnd||'';$('#pizzasPerSlot').value=settings.pizzasPerSlot||1;$('#slotMinutes').value=settings.slotMinutes||3;
   $('#auditEnabled').checked=Boolean(settings.auditEnabled);const breakSelect=$('#auditBreakStart');if(settings.auditBreakStart&&![...breakSelect.options].some(o=>o.value===settings.auditBreakStart)){breakSelect.add(new Option(settings.auditBreakStart+' (current)',settings.auditBreakStart));}breakSelect.value=settings.auditBreakStart||'';$('#auditBreakMinutes').value=settings.auditBreakMinutes;$('#auditPizzas').value=settings.auditPizzas;
   renderAuditPlan();
@@ -70,11 +86,11 @@ function formPlan(){
 }
 function changedFromSaved(){
   const f={eventDate:$('#eventDate')?$('#eventDate').value:settings.eventDate,serviceStart:$('#serviceStart').value,serviceEnd:$('#serviceEnd').value,pizzasPerSlot:String(parseInt($('#pizzasPerSlot').value,10)),slotMinutes:String(parseInt($('#slotMinutes').value,10)),maxPizzas:String(parseInt($('#maxPizzas').value,10)),auditEnabled:$('#auditEnabled').checked,auditBreakStart:$('#auditBreakStart').value,auditBreakMinutes:String(parseInt($('#auditBreakMinutes').value,10)),auditPizzas:String(parseInt($('#auditPizzas').value,10))};
-  return f.eventDate!==settings.eventDate||f.serviceStart!==settings.serviceStart||f.serviceEnd!==settings.serviceEnd||f.pizzasPerSlot!==String(settings.pizzasPerSlot)||f.slotMinutes!==String(settings.slotMinutes)||f.maxPizzas!==String(settings.maxPizzas)||f.auditEnabled!==Boolean(settings.auditEnabled)||f.auditBreakStart!==settings.auditBreakStart||f.auditBreakMinutes!==String(settings.auditBreakMinutes)||f.auditPizzas!==String(settings.auditPizzas);
+  return drinksChanged()||f.eventDate!==settings.eventDate||f.serviceStart!==settings.serviceStart||f.serviceEnd!==settings.serviceEnd||f.pizzasPerSlot!==String(settings.pizzasPerSlot)||f.slotMinutes!==String(settings.slotMinutes)||f.maxPizzas!==String(settings.maxPizzas)||f.auditEnabled!==Boolean(settings.auditEnabled)||f.auditBreakStart!==settings.auditBreakStart||f.auditBreakMinutes!==String(settings.auditBreakMinutes)||f.auditPizzas!==String(settings.auditPizzas);
 }
 function renderAuditPlan(){
   const p=formPlan(),a=audit||{},unsaved=changedFromSaved();
-  const badge=unsaved?'<span class="unsaved-badge">Not saved yet – press “Save kitchen availability”</span>':'<span class="saved-badge">✓ Saved – customers see this now</span>';
+  const badge=unsaved?'<span class="unsaved-badge">Not saved yet – press “Save kitchen settings”</span>':'<span class="saved-badge">✓ Saved – customers see this now</span>';
   if(p.error){$('#capacityPlan').innerHTML=`${badge}<p class="plan-error">${escapeHtml(p.error)}</p>`;$('#auditPlan').innerHTML='';return;}
   const mm=n=>`${n} minute${n===1?'':'s'}`,pace=p.per===1?`1 pizza every ${mm(p.step)}`:`${p.per} pizzas every ${mm(p.step)} (about 1 every ${Math.round(p.step*60/p.per)} seconds)`;
   const hours=Math.floor((p.end-p.start)/60),m=(p.end-p.start)%60,span=`${hours?hours+' h ':''}${m?m+' min':''}`.trim();
@@ -149,7 +165,7 @@ function settingsResult(text,ok){
 async function saveSettings(){
   const unavailable=[...document.querySelectorAll('#ingredientControls input:not(:checked)')].map(i=>i.value);
   try{
-    const data=await request('/api/admin/settings',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({eventDate:$('#eventDate')?$('#eventDate').value:undefined,maxPizzas:Number($('#maxPizzas').value),serviceStart:$('#serviceStart').value,serviceEnd:$('#serviceEnd').value,pizzasPerSlot:Number($('#pizzasPerSlot').value),slotMinutes:Number($('#slotMinutes').value),auditEnabled:$('#auditEnabled').checked,auditBreakStart:$('#auditBreakStart').value,auditBreakMinutes:Number($('#auditBreakMinutes').value),auditPizzas:Number($('#auditPizzas').value),unavailableIngredients:unavailable})});
+    const data=await request('/api/admin/settings',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({drinks:readDrinkRows(),eventDate:$('#eventDate')?$('#eventDate').value:undefined,maxPizzas:Number($('#maxPizzas').value),serviceStart:$('#serviceStart').value,serviceEnd:$('#serviceEnd').value,pizzasPerSlot:Number($('#pizzasPerSlot').value),slotMinutes:Number($('#slotMinutes').value),auditEnabled:$('#auditEnabled').checked,auditBreakStart:$('#auditBreakStart').value,auditBreakMinutes:Number($('#auditBreakMinutes').value),auditPizzas:Number($('#auditPizzas').value),unavailableIngredients:unavailable})});
     settings=data.settings;await refresh(true);renderSettings();render();
     const booked=orders.filter(o=>o.status!=='Cancelled').length;
     settingsResult(booked>=settings.maxPizzas?`✓ Saved. Stock limit is ${settings.maxPizzas} and ${booked} pizzas are already booked, so no new orders will be taken. Existing orders are kept.`:`✓ Saved. Customers see the changes straight away (${settings.maxPizzas-booked} pizzas left to order).`,true);
@@ -172,7 +188,7 @@ async function setStatus(id,status,button){
 
 async function deleteOrder(id){
   const order=orders.find(o=>o.id===id);
-  if(!order||!confirm(`Permanently remove order #${order.orderNumber} for ${order.customerName}?`))return;
+  if(!order||!(await askConfirm({title:`Remove order #${order.orderNumber}?`,text:`${order.customerName} – ${order.pizzaName}. This deletes the order completely.`,yes:'Remove order',danger:true})))return;
   try{await request(`/api/admin/orders/${encodeURIComponent(id)}`,{method:'DELETE'});orders=orders.filter(o=>o.id!==id);lastOrdersSignature='';render({preservePosition:true});lastOrdersSignature=ordersSignature(orders);}
   catch(error){show($('#adminMessage'),error.message);}
 }
@@ -198,16 +214,18 @@ async function setEventFinished(finished){
   catch(error){show($('#adminMessage'),error.message);}
 }
 function renderFinished(){const f=Boolean(settings&&settings.eventFinished);$('#finishedBanner').classList.toggle('hidden',!f);$('#finishEvent').disabled=f;$('#finishEvent').textContent=f?'✓ Pizza day finished':'🏁 Finish pizza day';}
-$('#finishEvent').onclick=()=>{if(confirm('Finish pizza day?\n\nOrdering closes for everyone and all phone numbers are deleted. Orders are kept.'))setEventFinished(true);};
+$('#finishEvent').onclick=async()=>{if(await askConfirm({title:'🏁 Finish pizza day?',text:'Ordering closes for everyone straight away and all phone numbers are deleted. Orders are kept, and you can reopen ordering later.',yes:'Finish pizza day'}))setEventFinished(true);};
 $('#reopenEvent').onclick=()=>setEventFinished(false);
 $('#resetOrders').onclick=async()=>{
+  await refresh(true);
   const n=orders.length;
-  if(!n)return show($('#adminMessage'),'There are no orders to reset.');
-  const typed=prompt(`This permanently removes all ${n} order(s), including real ones.\n\nType RESET to confirm:`);
-  if(typed===null)return;
-  if(typed.trim().toUpperCase()!=='RESET')return show($('#adminMessage'),'Reset cancelled: you need to type RESET.');
-  try{const data=await request('/api/admin/reset',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({confirm:'RESET'})});await refresh(true);show($('#adminMessage'),`Done: ${data.removed} order(s) removed. The board is back to zero.`);window.scrollTo({top:0,behavior:'smooth'});}
-  catch(error){show($('#adminMessage'),error.message);}
+  if(!n)return notice('There are no orders to remove – the board is already empty.',true);
+  const ok=await askConfirm({title:`Remove all ${n} order${n===1?'':'s'}?`,text:'Use this after testing or before a new pizza day. Every order is deleted and numbering restarts at #1. Settings, drinks and PIN stay as they are. This cannot be undone.',yes:`Yes, remove all ${n}`,danger:true});
+  if(!ok)return;
+  const btn=$('#resetOrders');btn.disabled=true;btn.textContent='Removing…';
+  try{const data=await request('/api/admin/reset',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({confirm:'RESET'})});lastOrdersSignature='';await refresh(true);notice(`✓ Done: ${data.removed} order${data.removed===1?'':'s'} removed. The board is back to zero.`,true);}
+  catch(error){notice('Could not reset: '+error.message,false);}
+  finally{btn.disabled=false;btn.textContent='🗑️ Remove all orders';}
 };
 ['eventDate','serviceStart','serviceEnd','slotMinutes','pizzasPerSlot','maxPizzas','auditEnabled','auditBreakStart','auditBreakMinutes','auditPizzas'].forEach(id=>{const el=document.getElementById(id);el.addEventListener('input',renderAuditPlan);el.addEventListener('change',renderAuditPlan);});
 $('#search').oninput=()=>render({preservePosition:false});
@@ -218,7 +236,7 @@ if(pin){$('#pin').value=pin;login();}else $('#pin').focus();
 
 const releaseAuditButton=$('#releaseAudit');
 if(releaseAuditButton)releaseAuditButton.onclick=async()=>{
-  if(!confirm('Release all unused audit places to staff? Confirmed audit orders will be kept.'))return;
+  if(!(await askConfirm({title:'Give unused audit places to staff?',text:'The audit team keeps the pizzas already booked; the rest of their reserved places become normal staff times.',yes:'Give to staff'})))return;
   releaseAuditButton.disabled=true;
   try{
     await request('/api/admin/settings',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({releaseUnusedAudit:true})});
@@ -227,3 +245,17 @@ if(releaseAuditButton)releaseAuditButton.onclick=async()=>{
   }catch(error){show($('#adminMessage'),error.message);}
   finally{releaseAuditButton.disabled=false;}
 };
+
+// ---- Drinks editor (name + cans), part of the kitchen settings ----
+function drinkRowsHtml(list){
+  return list.map((d,i)=>{const stock=drinkStock.find(x=>x.name===d.name),ordered=stock?stock.ordered||0:0;
+    return `<div class="drink-row" data-i="${i}"><input class="drink-name" value="${escapeHtml(d.name)}" maxlength="30" placeholder="e.g. Coke Zero" aria-label="Drink name"><input class="drink-cans" type="number" min="0" max="500" inputmode="numeric" value="${Number(d.cans)||0}" aria-label="Number of cans"><span class="drink-unit">cans</span><span class="drink-ordered" title="Ordered so far">${ordered} ordered</span><button type="button" class="drink-remove" aria-label="Remove ${escapeHtml(d.name)}">✕</button></div>`;}).join('')||'<p class="hint">No drinks – customers will not be offered a drink.</p>';
+}
+function readDrinkRows(){return [...document.querySelectorAll('#drinkRows .drink-row')].map(r=>({name:r.querySelector('.drink-name').value.trim(),cans:Number(r.querySelector('.drink-cans').value)||0})).filter(d=>d.name);}
+function renderDrinkEditor(){const box=$('#drinkRows');if(box)box.innerHTML=drinkRowsHtml((settings&&settings.drinks)||[]);}
+$('#addDrink').onclick=()=>{const list=readDrinkRows();list.push({name:'',cans:20});$('#drinkRows').innerHTML=drinkRowsHtml(list.concat());const rows=document.querySelectorAll('#drinkRows .drink-row');const last=rows[rows.length-1];if(last){last.querySelector('.drink-name').value='';last.querySelector('.drink-name').focus();}renderAuditPlan();};
+$('#drinkRows').addEventListener('click',e=>{const b=e.target.closest('.drink-remove');if(!b)return;b.closest('.drink-row').remove();if(!document.querySelector('#drinkRows .drink-row'))$('#drinkRows').innerHTML=drinkRowsHtml([]);renderAuditPlan();});
+$('#drinkRows').addEventListener('input',()=>renderAuditPlan());
+function drinksChanged(){const a=JSON.stringify(readDrinkRows()),b=JSON.stringify(((settings&&settings.drinks)||[]).map(d=>({name:d.name,cans:d.cans})));return a!==b;}
+function syncAuditFold(){const on=$('#auditEnabled').checked;$('#auditDetails').classList.toggle('hidden',!on);$('#auditOff').classList.toggle('hidden',on);}
+$('#auditEnabled').addEventListener('change',syncAuditFold);

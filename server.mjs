@@ -20,8 +20,19 @@ const DEFAULT_AUDIT = {auditEnabled:true,auditBreakStart:'13:00',auditBreakMinut
 const TOPPINGS = ['Pepperoni','Ham','Mushrooms','Red onion','White onion','Red pepper','Yellow pepper','Green pepper','Orange pepper','Sweetcorn','Black olives','Pineapple','Jalapeños','Chillies'];
 const DRINKS = ['Orange Tango','Apple Tango','Coke Zero','Diet Coke'];
 const CANS_PER_DRINK = 20;
-function drinkChoices(orders){
-  return DRINKS.map(name=>({name,remaining:Math.max(0,CANS_PER_DRINK-orders.filter(order=>order.drink===name).length)}));
+// Drinks are set on the kitchen board (name + number of cans); these are the defaults.
+const DEFAULT_DRINKS = DRINKS.map(name=>({name,cans:CANS_PER_DRINK}));
+function normaliseDrinks(value){
+  if(!Array.isArray(value))return DEFAULT_DRINKS.map(d=>({...d}));
+  const seen=new Set(),out=[];
+  for(const item of value.slice(0,12)){
+    const name=cleanText(item&&item.name,30);if(!name||seen.has(name.toLowerCase()))continue;seen.add(name.toLowerCase());
+    out.push({name,cans:clampInt(item.cans,0,500,0)});
+  }
+  return out;
+}
+function drinkChoices(orders,settings){
+  return settings.drinks.map(({name,cans})=>{const ordered=orders.filter(order=>order.drink===name).length;return{name,cans,ordered,remaining:Math.max(0,cans-ordered)};});
 }
 const OILS = ['None'];
 const SPECIALS = {
@@ -52,7 +63,8 @@ function normaliseSettings(value={}){
   const auditPizzas=clampInt(value.auditPizzas,0,80,DEFAULT_AUDIT.auditPizzas);
   const eventDate=/^\d{4}-\d{2}-\d{2}$/.test(String(value.eventDate||''))?String(value.eventDate):DEFAULT_EVENT_DATE;
   const eventFinished=value.eventFinished===true;
-  return{eventDate,eventFinished,maxPizzas,unavailableIngredients,serviceStart,serviceEnd,slotMinutes,pizzasPerSlot,auditEnabled,auditBreakStart:toHHMM(start),auditBreakMinutes,auditPizzas};
+  const drinks=normaliseDrinks(value.drinks);
+  return{eventDate,eventFinished,drinks,maxPizzas,unavailableIngredients,serviceStart,serviceEnd,slotMinutes,pizzasPerSlot,auditEnabled,auditBreakStart:toHHMM(start),auditBreakMinutes,auditPizzas};
 }
 // Staff slots kept free so the kitchen can cook the audit pizzas before their break starts.
 function auditPrepSlots(settings){
@@ -147,7 +159,7 @@ function normaliseOrder(body,settings){
   else{slot=cleanText(body.slot,5);if(!allSlots(settings).includes(slot))throw new Error(`Choose an available collection time between ${settings.serviceStart} and ${settings.serviceEnd}.`);}
   const phone=normalisePhone(body.phone);
   const drink=cleanText(body.drink,30);
-  if(drink&&!DRINKS.includes(drink))throw new Error('Choose an available drink.');
+  if(drink&&!settings.drinks.some(d=>d.name===drink))throw new Error('Choose an available drink.');
   const base=SPECIALS[specialKey]?'standard':(body.base||'standard');
   if(base!=='standard'&&base!=='barbecue')throw new Error('Choose tomato or barbecue sauce.');
   return{phone,drink,customerName,pizzaName,specialKey:SPECIALS[specialKey]?specialKey:'',base,toppings,oil,slot,audit};
@@ -155,7 +167,7 @@ function normaliseOrder(body,settings){
 // Checks that an order (new or reopened) still fits. `active` must not include the order itself.
 function assertFits(order,active,settings){
   if(settings.eventFinished)throw new Error('Pizza day has finished – thank you! Ordering is now closed.');
-  if(order.drink&&!drinkChoices(active).some(choice=>choice.name===order.drink&&choice.remaining>0))throw new Error('That drink has run out. Please choose another drink.');
+  if(order.drink&&!drinkChoices(active,settings).some(choice=>choice.name===order.drink&&choice.remaining>0))throw new Error('That drink has run out. Please choose another drink.');
   if(slotHasPassed(order.slot,undefined,settings.eventDate))throw new Error('That collection time has passed. Please choose a future time.');
   if(active.length>=settings.maxPizzas)throw new Error(`All ${settings.maxPizzas} pizzas have now been reserved.`);
   if(order.audit){
@@ -181,13 +193,13 @@ const server=http.createServer(async(req,res)=>{
     const store=await readStore(),active=activeOrders(store),unavailable=new Set(store.settings.unavailableIngredients),prep=auditPrepSlots(store.settings);
     const perSlot={};for(const o of active)if(!o.audit)perSlot[o.slot]=(perSlot[o.slot]||0)+1;
     const usedSlots=[...new Set([...Object.keys(perSlot).filter(k=>perSlot[k]>=store.settings.pizzasPerSlot),...prep,...allSlots(store.settings).filter(slot=>slotHasPassed(slot,undefined,store.settings.eventDate))])];
-    return sendJson(res,200,{drinks:drinkChoices(active),toppings:TOPPINGS.filter(i=>!unavailable.has(i)),oils:OILS.filter(i=>i==='None'||!unavailable.has(i)),specials:SPECIALS,unavailableSpecials:unavailableSpecials(store.settings),eventFinished:store.settings.eventFinished,slots:allSlots(store.settings),serviceStart:store.settings.serviceStart,serviceEnd:store.settings.serviceEnd,pizzasPerSlot:store.settings.pizzasPerSlot,slotMinutes:store.settings.slotMinutes,usedSlots,maxPizzas:store.settings.maxPizzas,currentCount:active.length,remaining:Math.max(0,store.settings.maxPizzas-active.length),audit:auditInfo(store.settings,active),capacity:capacityInfo(store.settings)});
+    return sendJson(res,200,{drinks:drinkChoices(active,store.settings),toppings:TOPPINGS.filter(i=>!unavailable.has(i)),oils:OILS.filter(i=>i==='None'||!unavailable.has(i)),specials:SPECIALS,unavailableSpecials:unavailableSpecials(store.settings),eventFinished:store.settings.eventFinished,slots:allSlots(store.settings),serviceStart:store.settings.serviceStart,serviceEnd:store.settings.serviceEnd,pizzasPerSlot:store.settings.pizzasPerSlot,slotMinutes:store.settings.slotMinutes,usedSlots,maxPizzas:store.settings.maxPizzas,currentCount:active.length,remaining:Math.max(0,store.settings.maxPizzas-active.length),audit:auditInfo(store.settings,active),capacity:capacityInfo(store.settings)});
   }
   if(req.method==='GET'&&pathname==='/api/qr'){const configured=cleanText(process.env.PUBLIC_URL,300),origin=configured||`${req.headers['x-forwarded-proto']||'http'}://${req.headers.host}`,qr=u=>`https://api.qrserver.com/v1/create-qr-code/?size=900x900&ecc=H&data=${encodeURIComponent(u)}`,base=origin.replace(/\/+$/,''),auditUrl=`${base}/audit`;return sendJson(res,200,{url:origin,imageUrl:qr(origin),auditUrl,auditImageUrl:qr(auditUrl)});}
   if(req.method==='POST'&&pathname==='/api/orders'){
     try{const payload=await bodyJson(req);const order=await mutateStore(store=>{const input=normaliseOrder(payload,store.settings);assertFits(input,activeOrders(store),store.settings);const now=new Date().toISOString();const created={id:crypto.randomUUID(),orderNumber:store.orders.reduce((m,o)=>Math.max(m,Number(o.orderNumber)||0),0)+1,...input,status:'Pending',createdAt:now,updatedAt:now};store.orders.push(created);return created;});return sendJson(res,201,{order,audit:order.audit?auditInfo((await readStore()).settings,[]):undefined});}catch(error){return sendJson(res,400,{error:error.message||'Unable to place the order.'});}
   }
-  if(pathname==='/api/admin/orders'&&req.method==='GET'){if(!isAdmin(req,url))return sendJson(res,401,{error:'Incorrect admin PIN.'});const store=await readStore(),active=activeOrders(store);return sendJson(res,200,{drinkStock:DRINKS.map(name=>({name,total:CANS_PER_DRINK})),orders:[...store.orders].map(kitchenView).sort((a,b)=>a.slot.localeCompare(b.slot)||Number(Boolean(b.audit))-Number(Boolean(a.audit))||a.orderNumber-b.orderNumber),settings:store.settings,audit:auditInfo(store.settings,active),capacity:capacityInfo(store.settings),ingredients:[...TOPPINGS,...OILS.filter(o=>o!=='None')]});}
+  if(pathname==='/api/admin/orders'&&req.method==='GET'){if(!isAdmin(req,url))return sendJson(res,401,{error:'Incorrect admin PIN.'});const store=await readStore(),active=activeOrders(store);return sendJson(res,200,{drinkStock:drinkChoices(active,store.settings).map(d=>({name:d.name,total:d.cans,ordered:d.ordered})),orders:[...store.orders].map(kitchenView).sort((a,b)=>a.slot.localeCompare(b.slot)||Number(Boolean(b.audit))-Number(Boolean(a.audit))||a.orderNumber-b.orderNumber),settings:store.settings,audit:auditInfo(store.settings,active),capacity:capacityInfo(store.settings),ingredients:[...TOPPINGS,...OILS.filter(o=>o!=='None')]});}
   if(pathname==='/api/admin/settings'&&req.method==='PATCH'){
     if(!isAdmin(req,url))return sendJson(res,401,{error:'Incorrect admin PIN.'});
     try{const payload=await bodyJson(req);if(payload&&'eventDate' in payload&&!/^\d{4}-\d{2}-\d{2}$/.test(String(payload.eventDate)))throw new Error('Choose the pizza day date.');const settings=await mutateStore(store=>{const active=activeOrders(store),merged={...store.settings,...payload};if(payload&&payload.eventDate&&payload.eventDate!==store.settings.eventDate&&!('eventFinished' in payload))merged.eventFinished=false;const next=normaliseSettings(merged);if(next.eventFinished)store.orders.forEach(forgetContact);
