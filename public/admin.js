@@ -134,15 +134,35 @@ function render({preservePosition=true}={}){
 }
 
 // Kitchen board grouped by stage: Pending → Preparing → Ready → Collected (+ Cancelled).
-const GROUPS=[['Pending','📝 Pending','New orders, not started'],['Preparing','🔥 Preparing','In the oven'],['Ready','✅ Ready','Waiting to be collected'],['Collected','😋 Collected',''],['Cancelled','✖️ Cancelled','']];
-const groupOpen={Pending:true,Preparing:true,Ready:true,Collected:false,Cancelled:false};
+// Kitchen board grouped by stage. Pending only shows orders that are due within the next
+// 15 minutes (or late); the rest wait in "Coming up later" and move up automatically.
+const DUE_WINDOW_MIN=15;
+const GROUPS=[['Pending','📝 Pending','To make now – due within 15 min'],['Preparing','🔥 Preparing','In the oven'],['Ready','✅ Ready','Waiting to be collected'],['Later','⏳ Coming up later','Moves to Pending 15 min before it is due'],['Collected','😋 Collected',''],['Cancelled','✖️ Cancelled','']];
+const groupOpen={Pending:true,Preparing:true,Ready:true,Later:false,Collected:false,Cancelled:false};
+function hhmmToMin(t){const m=/^(\d{1,2}):(\d{2})/.exec(t||'');return m?Number(m[1])*60+Number(m[2]):NaN;}
+function minToHhmm(m){m=Math.max(0,m);return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;}
+function todayLocal(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+// When the kitchen needs to start on an order: staff = its collection time; audit = start of the audit cooking run.
+function startTime(o){const auditStart=hhmmToMin(audit&&audit.prepFrom);return o.audit&&Number.isFinite(auditStart)?auditStart:hhmmToMin(o.slot);}
+function showsFrom(o){return startTime(o)-DUE_WINDOW_MIN;}
+function isDueNow(o){
+  const day=(settings&&settings.eventDate)||todayLocal(),today=todayLocal();
+  if(today>day)return true;               // event day has passed: everything is due
+  if(today<day)return false;              // before the event day: nothing is due yet
+  const now=new Date(),nowMin=now.getHours()*60+now.getMinutes();
+  return !Number.isFinite(startTime(o))||nowMin>=showsFrom(o);
+}
+function boardGroup(o){return o.status==='Pending'&&!isDueNow(o)?'Later':o.status;}
 function groupedOrders(list){
-  return GROUPS.map(([status,title,hint])=>{
-    const items=list.filter(o=>o.status===status);
-    const body=items.length?items.map(orderCard).join(''):`<p class="group-empty">No orders here.</p>`;
-    return `<details class="status-group group-${status.toLowerCase()}" data-group="${status}" ${groupOpen[status]?'open':''}><summary><span class="group-title">${title}</span><span class="group-count">${items.length}</span>${hint?`<span class="group-hint">${hint}</span>`:''}</summary><div class="group-body">${body}</div></details>`;
+  return GROUPS.map(([group,title,hint])=>{
+    const items=list.filter(o=>boardGroup(o)===group);
+    const body=items.length?items.map(o=>group==='Later'?`<div class="later-tag">Moves to Pending at ${minToHhmm(showsFrom(o))}</div>`+orderCard(o):orderCard(o)).join(''):`<p class="group-empty">${group==='Pending'?'Nothing due in the next 15 minutes.':'No orders here.'}</p>`;
+    return `<details class="status-group group-${group.toLowerCase()}" data-group="${group}" ${groupOpen[group]?'open':''}><summary><span class="group-title">${title}</span><span class="group-count">${items.length}</span>${hint?`<span class="group-hint">${hint}</span>`:''}</summary><div class="group-body">${body}</div></details>`;
   }).join('');
 }
+// Re-draw once a minute when an order becomes due, so it moves into Pending by itself.
+let lastDueSignature='';
+setInterval(()=>{if(!orders||!orders.length)return;const sig=orders.map(o=>o.id+':'+boardGroup(o)).join('|');if(sig!==lastDueSignature){lastDueSignature=sig;if(!document.querySelector('.status-button:focus'))render({preservePosition:true});}},20000);
 $('#orders').addEventListener('toggle',event=>{const g=event.target.closest&&event.target.closest('[data-group]');if(g)groupOpen[g.dataset.group]=g.open;},true);
 function whatsappLink(o){
   const first=String(o.customerName||'').trim().split(/\s+/)[0];

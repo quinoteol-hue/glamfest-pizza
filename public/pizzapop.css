@@ -290,3 +290,8 @@ body.ready-alert{animation:readyFlash .8s ease-in-out 8}
   .drink-row .drink-name{grid-area:name}.drink-row .drink-cans{grid-area:cans}.drink-row .drink-remove{grid-area:x}
   .drink-row .drink-unit{display:none}.drink-row .drink-ordered{grid-area:ordered;justify-self:start}
 }
+
+/* "Coming up later" group */
+.group-later>summary{background:#eef2fb;color:var(--navy)}
+.group-later .order-card{opacity:.85}
+.later-tag{font-size:.8rem;font-weight:900;color:var(--navy);background:#eef2fb;border:1.5px solid #c9d3ec;border-radius:999px;padding:3px 10px;justify-self:start;margin:2px 0 -4px}
