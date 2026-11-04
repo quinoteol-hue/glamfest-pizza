@@ -187,3 +187,15 @@ body.ready-alert{animation:readyFlash .8s ease-in-out 8}
 .notify-chip{display:inline-flex;align-items:center;background:#eef2ff;color:var(--navy);border:2px solid var(--navy);border-radius:999px;padding:4px 10px;font-weight:800;font-size:.85rem}
 .message.ok{border-color:var(--it-green);background:#e3f4e6;color:#1f6b2d}
 .settings-message{margin-top:10px}
+
+/* ---- Event finished ---- */
+.event-closed{text-align:center;background:#fff;border:3px solid var(--navy);border-radius:22px;padding:24px 18px;margin:0 0 18px;box-shadow:var(--shadow)}
+.event-closed .closed-icon{font-size:3rem}
+.event-closed h2{font-family:Georgia,"Times New Roman",serif;font-style:italic;color:var(--pop-red);font-size:1.9rem;margin:6px 0}
+.event-closed p{color:var(--navy);font-weight:700;margin:6px 0}
+.finish-zone{margin-top:18px;border:2px solid var(--navy)}
+.finish-zone h2{margin-top:0;color:var(--navy)}
+.finish-button{border:2px solid var(--navy);background:var(--navy);color:#fff;font:inherit;font-weight:900;border-radius:12px;padding:12px 16px;cursor:pointer}
+.finish-button:disabled{background:#e3f4e6;color:#1f6b2d;border-color:var(--it-green);cursor:default}
+.finished-banner{background:#e3f4e6;border:3px solid var(--it-green);color:#1f6b2d;border-radius:16px;padding:12px 14px;margin:14px 0;font-weight:700;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.finished-banner button{margin-left:auto;border:2px solid var(--navy);background:#fff;color:var(--navy);font:inherit;font-weight:900;border-radius:10px;padding:6px 12px;cursor:pointer}

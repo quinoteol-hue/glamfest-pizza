@@ -6,7 +6,7 @@ let pin=sessionStorage.getItem('glamfestAdminPin')||'',orders=[],settings={},aud
 function escapeHtml(value){return String(value).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
 function show(el,text){el.textContent=text;el.classList.remove('hidden');}
 function hide(el){el.classList.add('hidden');}
-function ordersSignature(value){return JSON.stringify((value||[]).map(o=>[o.id,o.status,o.updatedAt,o.slot,o.customerName,o.pizzaName,o.audit,o.oil,o.toppings]));}
+function ordersSignature(value){return JSON.stringify((value||[]).map(o=>[o.id,o.status,o.updatedAt,o.slot,o.customerName,o.pizzaName,o.audit,o.oil,o.toppings,o.phone||'',Boolean(o.notify),o.drink||'',o.base||'']));}
 
 async function request(url,options={}){
   const response=await fetch(url,{...options,cache:'no-store',headers:{...(options.headers||{}),'x-admin-pin':pin}});
@@ -21,7 +21,7 @@ function applyData(data,{force=false,preservePosition=true}={}){
   const settingsChanged=force||JSON.stringify(nextSettings)!==JSON.stringify(settings)||JSON.stringify(nextIngredients)!==JSON.stringify(ingredients);
   if(data.drinkStock)drinkStock=data.drinkStock;
   orders=nextOrders;settings=nextSettings;ingredients=nextIngredients;if(data.audit)audit=data.audit;if(data.capacity)capacity=data.capacity;
-  if(settingsChanged)renderSettings();
+  if(settingsChanged){renderSettings();renderFinished();}
   if(ordersChanged||settingsChanged){render({preservePosition});lastOrdersSignature=nextSignature;}
 }
 
@@ -192,6 +192,14 @@ $('#pin').onkeydown=e=>{if(e.key==='Enter')login();};
 $('#togglePin').onclick=()=>{const input=$('#pin'),showing=input.type==='text';input.type=showing?'password':'text';$('#togglePin').textContent=showing?'Show':'Hide';};
 $('#refresh').onclick=()=>refresh(false);
 $('#saveSettings').onclick=saveSettings;
+async function setEventFinished(finished){
+  try{const data=await request('/api/admin/settings',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({eventFinished:finished})});settings=data.settings;await refresh(true);renderFinished();
+    show($('#adminMessage'),finished?'🏁 Pizza day finished: ordering is closed and phone numbers have been deleted.':'Ordering reopened.');$('#adminMessage').className='message ok';window.scrollTo({top:0,behavior:'smooth'});}
+  catch(error){show($('#adminMessage'),error.message);}
+}
+function renderFinished(){const f=Boolean(settings&&settings.eventFinished);$('#finishedBanner').classList.toggle('hidden',!f);$('#finishEvent').disabled=f;$('#finishEvent').textContent=f?'✓ Pizza day finished':'🏁 Finish pizza day';}
+$('#finishEvent').onclick=()=>{if(confirm('Finish pizza day?\n\nOrdering closes for everyone and all phone numbers are deleted. Orders are kept.'))setEventFinished(true);};
+$('#reopenEvent').onclick=()=>setEventFinished(false);
 $('#resetOrders').onclick=async()=>{
   const n=orders.length;
   if(!n)return show($('#adminMessage'),'There are no orders to reset.');

@@ -51,7 +51,8 @@ function normaliseSettings(value={}){
   const auditBreakMinutes=clampInt(value.auditBreakMinutes,10,120,DEFAULT_AUDIT.auditBreakMinutes);
   const auditPizzas=clampInt(value.auditPizzas,0,80,DEFAULT_AUDIT.auditPizzas);
   const eventDate=/^\d{4}-\d{2}-\d{2}$/.test(String(value.eventDate||''))?String(value.eventDate):DEFAULT_EVENT_DATE;
-  return{eventDate,maxPizzas,unavailableIngredients,serviceStart,serviceEnd,slotMinutes,pizzasPerSlot,auditEnabled,auditBreakStart:toHHMM(start),auditBreakMinutes,auditPizzas};
+  const eventFinished=value.eventFinished===true;
+  return{eventDate,eventFinished,maxPizzas,unavailableIngredients,serviceStart,serviceEnd,slotMinutes,pizzasPerSlot,auditEnabled,auditBreakStart:toHHMM(start),auditBreakMinutes,auditPizzas};
 }
 // Staff slots kept free so the kitchen can cook the audit pizzas before their break starts.
 function auditPrepSlots(settings){
@@ -153,6 +154,7 @@ function normaliseOrder(body,settings){
 }
 // Checks that an order (new or reopened) still fits. `active` must not include the order itself.
 function assertFits(order,active,settings){
+  if(settings.eventFinished)throw new Error('Pizza day has finished – thank you! Ordering is now closed.');
   if(order.drink&&!drinkChoices(active).some(choice=>choice.name===order.drink&&choice.remaining>0))throw new Error('That drink has run out. Please choose another drink.');
   if(slotHasPassed(order.slot,undefined,settings.eventDate))throw new Error('That collection time has passed. Please choose a future time.');
   if(active.length>=settings.maxPizzas)throw new Error(`All ${settings.maxPizzas} pizzas have now been reserved.`);
@@ -179,7 +181,7 @@ const server=http.createServer(async(req,res)=>{
     const store=await readStore(),active=activeOrders(store),unavailable=new Set(store.settings.unavailableIngredients),prep=auditPrepSlots(store.settings);
     const perSlot={};for(const o of active)if(!o.audit)perSlot[o.slot]=(perSlot[o.slot]||0)+1;
     const usedSlots=[...new Set([...Object.keys(perSlot).filter(k=>perSlot[k]>=store.settings.pizzasPerSlot),...prep,...allSlots(store.settings).filter(slot=>slotHasPassed(slot,undefined,store.settings.eventDate))])];
-    return sendJson(res,200,{drinks:drinkChoices(active),toppings:TOPPINGS.filter(i=>!unavailable.has(i)),oils:OILS.filter(i=>i==='None'||!unavailable.has(i)),specials:SPECIALS,unavailableSpecials:unavailableSpecials(store.settings),slots:allSlots(store.settings),serviceStart:store.settings.serviceStart,serviceEnd:store.settings.serviceEnd,pizzasPerSlot:store.settings.pizzasPerSlot,slotMinutes:store.settings.slotMinutes,usedSlots,maxPizzas:store.settings.maxPizzas,currentCount:active.length,remaining:Math.max(0,store.settings.maxPizzas-active.length),audit:auditInfo(store.settings,active),capacity:capacityInfo(store.settings)});
+    return sendJson(res,200,{drinks:drinkChoices(active),toppings:TOPPINGS.filter(i=>!unavailable.has(i)),oils:OILS.filter(i=>i==='None'||!unavailable.has(i)),specials:SPECIALS,unavailableSpecials:unavailableSpecials(store.settings),eventFinished:store.settings.eventFinished,slots:allSlots(store.settings),serviceStart:store.settings.serviceStart,serviceEnd:store.settings.serviceEnd,pizzasPerSlot:store.settings.pizzasPerSlot,slotMinutes:store.settings.slotMinutes,usedSlots,maxPizzas:store.settings.maxPizzas,currentCount:active.length,remaining:Math.max(0,store.settings.maxPizzas-active.length),audit:auditInfo(store.settings,active),capacity:capacityInfo(store.settings)});
   }
   if(req.method==='GET'&&pathname==='/api/qr'){const configured=cleanText(process.env.PUBLIC_URL,300),origin=configured||`${req.headers['x-forwarded-proto']||'http'}://${req.headers.host}`,qr=u=>`https://api.qrserver.com/v1/create-qr-code/?size=900x900&ecc=H&data=${encodeURIComponent(u)}`,base=origin.replace(/\/+$/,''),auditUrl=`${base}/audit`;return sendJson(res,200,{url:origin,imageUrl:qr(origin),auditUrl,auditImageUrl:qr(auditUrl)});}
   if(req.method==='POST'&&pathname==='/api/orders'){
@@ -188,7 +190,7 @@ const server=http.createServer(async(req,res)=>{
   if(pathname==='/api/admin/orders'&&req.method==='GET'){if(!isAdmin(req,url))return sendJson(res,401,{error:'Incorrect admin PIN.'});const store=await readStore(),active=activeOrders(store);return sendJson(res,200,{drinkStock:DRINKS.map(name=>({name,total:CANS_PER_DRINK})),orders:[...store.orders].map(kitchenView).sort((a,b)=>a.slot.localeCompare(b.slot)||Number(Boolean(b.audit))-Number(Boolean(a.audit))||a.orderNumber-b.orderNumber),settings:store.settings,audit:auditInfo(store.settings,active),capacity:capacityInfo(store.settings),ingredients:[...TOPPINGS,...OILS.filter(o=>o!=='None')]});}
   if(pathname==='/api/admin/settings'&&req.method==='PATCH'){
     if(!isAdmin(req,url))return sendJson(res,401,{error:'Incorrect admin PIN.'});
-    try{const payload=await bodyJson(req);if(payload&&'eventDate' in payload&&!/^\d{4}-\d{2}-\d{2}$/.test(String(payload.eventDate)))throw new Error('Choose the pizza day date.');const settings=await mutateStore(store=>{const active=activeOrders(store),next=normaliseSettings({...store.settings,...payload});
+    try{const payload=await bodyJson(req);if(payload&&'eventDate' in payload&&!/^\d{4}-\d{2}-\d{2}$/.test(String(payload.eventDate)))throw new Error('Choose the pizza day date.');const settings=await mutateStore(store=>{const active=activeOrders(store),merged={...store.settings,...payload};if(payload&&payload.eventDate&&payload.eventDate!==store.settings.eventDate&&!('eventFinished' in payload))merged.eventFinished=false;const next=normaliseSettings(merged);if(next.eventFinished)store.orders.forEach(forgetContact);
       if(payload.releaseUnusedAudit===true)next.auditPizzas=active.filter(order=>order.audit).length;
       // A stock limit below the orders already booked is allowed: existing orders stay, new orders stop.
       const auditBooked=active.filter(o=>o.audit);
@@ -231,7 +233,7 @@ const server=http.createServer(async(req,res)=>{
   if(req.method==='GET'&&pathname==='/api/push-key')return sendJson(res,200,{publicKey:vapidReady?vapidPublicKey:''});
   if(req.method==='GET'&&pathname==='/api/board'){
     const store=await readStore(),pick=status=>store.orders.filter(o=>o.status===status).sort((a,b)=>String(a.updatedAt).localeCompare(String(b.updatedAt))).map(o=>({orderNumber:o.orderNumber,name:firstName(o.customerName),pizzaName:o.pizzaName,slot:o.slot,audit:Boolean(o.audit),since:o.updatedAt}));
-    return sendJson(res,200,{ready:pick('Ready'),preparing:pick('Preparing')});
+    return sendJson(res,200,{ready:pick('Ready'),preparing:pick('Preparing'),eventFinished:store.settings.eventFinished});
   }
   if(req.method!=='GET')return sendJson(res,405,{error:'Method not allowed.'});
   if(pathname==='/ready'||pathname==='/ready/')return sendFile(res,path.join(__dirname,'public','ready.html'));

@@ -10,6 +10,11 @@ function escapeHtml(value){return String(value).replace(/[&<>'"]/g,c=>({'&':'&am
 function showMessage(text){message.textContent=text;message.classList.remove('hidden');message.scrollIntoView({behavior:'smooth',block:'center'});}
 function hideMessage(){message.classList.add('hidden');}
 
+function applyEventFinished(finished){
+  $('#eventClosed').classList.toggle('hidden',!finished);
+  if(finished){form.classList.add('hidden');const hint=document.querySelector('#eventClosed .muted');let mine=[];try{mine=JSON.parse(localStorage.getItem('pizzaPopOrders')||'[]');}catch{}if(hint)hint.classList.toggle('hidden',!mine.length);}
+  else if(success.classList.contains('hidden'))form.classList.remove('hidden');
+}
 async function loadConfig({preserveSelection=true}={}){
   if(loadingConfig)return;
   loadingConfig=true;
@@ -18,6 +23,7 @@ async function loadConfig({preserveSelection=true}={}){
     const response=await fetch('/api/config',{cache:'no-store'});
     if(!response.ok)throw new Error('Unable to load ordering information.');
     state.config=await response.json();
+    applyEventFinished(state.config.eventFinished);
     renderChoices();
     renderDrinks();
     renderSlots(previousSlot);
@@ -79,7 +85,7 @@ function renderSlots(previousSlot=''){
   submitButton.disabled=soldOut;
 }
 
-function updateAvailability(){$('#remainingBadge').textContent=AUDIT_MODE?`${Math.min(state.config.audit?.remaining??0,state.config.remaining)} audit pizzas remaining`:`${state.config.remaining} pizzas remaining`;}
+function updateAvailability(){if(state.config&&state.config.eventFinished){$('#remainingBadge').textContent='🏁 Ordering closed';return;}$('#remainingBadge').textContent=AUDIT_MODE?`${Math.min(state.config.audit?.remaining??0,state.config.remaining)} audit pizzas remaining`:`${state.config.remaining} pizzas remaining`;}
 function choosePizza(key){
   if(key!=='custom'&&state.config.unavailableSpecials?.[key])return showMessage('That pizza is temporarily unavailable because an ingredient has run out.');
   state.specialKey=key==='custom'?'':key;

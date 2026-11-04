@@ -64,7 +64,7 @@ async function load(){
     const ids=new Set(d.ready.map(o=>o.orderNumber));
     if(seen&&[...ids].some(n=>!seen.has(n))){chime();$('.ready').classList.remove('flash');void $('.ready').offsetWidth;$('.ready').classList.add('flash');}
     seen=ids;
-    $('#status').textContent='Live · updates every 5 seconds';$('#status').classList.remove('offline');
+    $('#status').textContent=d.eventFinished?'🏁 Pizza day finished – thank you, ED team!':'Live · updates every 5 seconds';$('#status').classList.remove('offline');
   }catch{$('#status').textContent='Reconnecting…';$('#status').classList.add('offline');}
 }
 function tick(){$('#clock').textContent=new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});}
