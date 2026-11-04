@@ -199,3 +199,17 @@ body.ready-alert{animation:readyFlash .8s ease-in-out 8}
 .finish-button:disabled{background:#e3f4e6;color:#1f6b2d;border-color:var(--it-green);cursor:default}
 .finished-banner{background:#e3f4e6;border:3px solid var(--it-green);color:#1f6b2d;border-radius:16px;padding:12px 14px;margin:14px 0;font-weight:700;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .finished-banner button{margin-left:auto;border:2px solid var(--navy);background:#fff;color:var(--navy);font:inherit;font-weight:900;border-radius:10px;padding:6px 12px;cursor:pointer}
+
+/* ---- Optional WhatsApp number (tidier) ---- */
+.wa-optin{margin-top:16px;padding:14px;border:2px solid #b8e6c4;border-radius:16px;background:#f2fbf4}
+.wa-head{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.wa-bubble{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:#25d366;font-size:1.2rem;flex:0 0 auto}
+.wa-head label{margin:0;color:var(--navy);font-size:1.02rem}
+.wa-head small{display:block;color:var(--muted);font-weight:700}
+.phone-field{display:flex;align-items:center;background:#fff;border:2px solid #bdb29f;border-radius:13px;min-height:51px;padding:0 4px 0 12px;transition:border-color .15s,box-shadow .15s}
+.phone-field:focus-within{border-color:var(--navy);box-shadow:0 0 0 4px rgba(29,47,92,.12)}
+.phone-field.looks-wrong{border-color:var(--pop-red)}
+.phone-prefix{font-size:1.1rem;margin-right:8px}
+.phone-field input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:1.05rem;letter-spacing:.03em;color:var(--ink);padding:12px 6px 12px 0}
+.phone-help{margin:8px 2px 0;font-size:.82rem;color:var(--muted);font-weight:600}
+.step-content{min-width:0}

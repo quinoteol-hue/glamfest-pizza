@@ -257,3 +257,9 @@ $('#notifyButton').addEventListener('click',async()=>{
   if(perm!=='granted'){$('#notifyHelp').textContent='No problem: keep this page open and it will beep when your pizza is ready.';$('#notifyButton').classList.add('hidden');return;}
   subscribeForOrder(notifyOrder,false);
 });
+
+// Tidy the optional mobile number as it is typed in (e.g. "07700900123" → "07700 900123").
+(function(){const el=$('#phone');if(!el)return;
+  el.addEventListener('blur',()=>{let d=el.value.replace(/[^\d+]/g,'');if(d.startsWith('+44'))d='0'+d.slice(3);if(d.startsWith('0044'))d='0'+d.slice(4);if(/^07\d{9}$/.test(d))el.value=d.slice(0,5)+' '+d.slice(5);
+    el.closest('.phone-field').classList.toggle('looks-wrong',Boolean(el.value.trim())&&!/^07\d{3} ?\d{6}$/.test(el.value.trim()));});
+  el.addEventListener('input',()=>el.closest('.phone-field').classList.remove('looks-wrong'));})();

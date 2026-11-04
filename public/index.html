@@ -7,7 +7,7 @@
   <title>Pizza &amp; Pop – ED Pizza Day</title>
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/enhancements.css">
-  <link rel="stylesheet" href="/pizzapop.css?v=9">
+  <link rel="stylesheet" href="/pizzapop.css?v=11">
   <style>
     .base-picker{border:0;padding:0;margin:0 0 1.25rem;min-inline-size:0}
     .base-picker legend{font-weight:800;font-size:1.15rem;margin-bottom:.65rem}
@@ -26,7 +26,7 @@
     <section id="eventClosed" class="event-closed hidden"><div class="closed-icon">🏁</div><h2>Pizza day has finished</h2><p>Thank you, ED team! Ordering is now closed.</p><p class="muted">If you ordered, your order status is shown below.</p></section>
     <section id="myOrders" class="my-orders hidden" aria-live="polite"></section>
     <form id="orderForm" novalidate>
-      <section class="step-card"><div class="step-number">1</div><div class="step-content"><h2>Who is collecting?</h2><label for="customerName">Collector name</label><input id="customerName" name="customerName" maxlength="60" autocomplete="name" placeholder="Enter your name" required><label for="phone" class="phone-label">Mobile number <span class="optional">(optional)</span></label><input id="phone" name="phone" type="tel" inputmode="tel" maxlength="20" autocomplete="tel" placeholder="e.g. 07700 900123"><p class="muted phone-help">💬 Add it if you'd like a WhatsApp message from the kitchen when your pizza is ready. Only used for that, and deleted automatically after the event.</p></div></section>
+      <section class="step-card"><div class="step-number">1</div><div class="step-content"><h2>Who is collecting?</h2><label for="customerName">Collector name</label><input id="customerName" name="customerName" maxlength="60" autocomplete="name" placeholder="Enter your name" required><div class="wa-optin"><div class="wa-head"><span class="wa-bubble" aria-hidden="true">💬</span><div><label for="phone">WhatsApp when it's ready</label><small>Optional · add your mobile number</small></div></div><div class="phone-field"><span class="phone-prefix" aria-hidden="true">📱</span><input id="phone" name="phone" type="tel" inputmode="tel" maxlength="20" autocomplete="tel" placeholder="07700 900123"></div><p class="phone-help">🔒 Only used for your “pizza ready” message · deleted automatically after the event</p></div></div></section>
       <section class="step-card"><div class="step-number">2</div><div class="step-content"><h2>Choose your pizza</h2><div class="pizza-grid">
         <button type="button" class="pizza-card" data-special="resus"><span class="pizza-icon">🌶️</span><strong>Resus Pizza</strong><small>Tomato sauce, cheese, pepperoni, jalapeños and chillies</small></button>
         <button type="button" class="pizza-card" data-special="paeds"><span class="pizza-icon">🍍</span><strong>Paeds Pizza</strong><small>Tomato sauce, cheese, ham and pineapple</small></button>
@@ -42,6 +42,6 @@
     <section id="success" class="success hidden" aria-live="polite"><div class="official-brand success-brand"></div><div class="success-icon">✓</div><h2>Your pizza is booked!</h2><p class="pop-note">Pick up your soft drink when you collect. Grazie, ED team!</p><div id="successDetails"></div><div id="successTracker" class="tracker"></div><div id="notifyBox" class="notify-box hidden"><button id="notifyButton" class="notify-button" type="button">🔔 Notify me when it's ready</button><p id="notifyHelp" class="muted"></p></div><p class="keep-open">📱 Keep this page open: it will flash, beep and vibrate when your pizza is ready.</p><div class="donate-block success-donate"><p class="donate-ask">Enjoying your pizza? Help us keep wellbeing days going.</p><a class="donate-button big" href="https://paymentrequest.natwestpayit.com/reusable-links/4c1f2b55-f1cd-496e-abe3-6e354f456e33" target="_blank" rel="noopener noreferrer"><span class="donate-heart">❤️</span><span><strong>Donate to the ED Wellbeing Fund</strong><small>Tap here – any amount, optional</small></span><span class="donate-arrow">→</span></a><p class="donate-note">Donations support ED wellbeing activities. The payment page shows Matthew Lyons as the recipient.</p></div><button id="anotherOrder" class="secondary" type="button">Order another pizza</button></section>
   </main>
   <footer><div class="footer-cols"><div><span class="footer-kicker">Funded by</span><strong>Doctor Mo &amp; the Wellbeing Team</strong></div><div><span class="footer-kicker">❤️ We accept donations</span><strong>to help us grow future wellbeing activities for our ED team</strong><a class="donate-button" href="https://paymentrequest.natwestpayit.com/reusable-links/4c1f2b55-f1cd-496e-abe3-6e354f456e33" target="_blank" rel="noopener noreferrer"><span class="donate-heart">❤️</span><span><strong>Donate to the ED Wellbeing Fund</strong><small>Tap here – any amount, optional</small></span><span class="donate-arrow">→</span></a></div></div><a class="kitchen-admin-link" href="/admin">🔐 Kitchen Admin</a></footer>
-  <script src="/app.js?v=14" defer></script>
+  <script src="/app.js?v=15" defer></script>
 </body>
 </html>
