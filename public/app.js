@@ -128,16 +128,18 @@ form.addEventListener('submit',async event=>{
   if(!AUDIT_MODE&&!$('#slot').value)return showMessage('Choose a collection time.');
   if(AUDIT_MODE&&!auditOpen())return showMessage('All audit team pizzas have been reserved. Please speak to the pizza team.');
   if(!$('#confirm').checked)return showMessage('Please confirm that you have checked the order.');
+  unlockSound();
   submitButton.disabled=true;submitButton.textContent='Reserving…';
   try{
-    const response=await fetch('/api/orders',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({customerName:$('#customerName').value,specialKey:state.specialKey,toppings:state.toppings,oil:state.oil,base:selectedBase(),drink:$('#drink')?.value||'',slot:AUDIT_MODE?'':$('#slot').value,group:AUDIT_MODE?'audit':'staff'})});
+    const response=await fetch('/api/orders',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({phone:$('#phone')?$('#phone').value:'',customerName:$('#customerName').value,specialKey:state.specialKey,toppings:state.toppings,oil:state.oil,base:selectedBase(),drink:$('#drink')?.value||'',slot:AUDIT_MODE?'':$('#slot').value,group:AUDIT_MODE?'audit':'staff'})});
     const data=await response.json();if(!response.ok)throw new Error(data.error||'Unable to reserve the pizza.');
     const o=data.order;
     form.classList.add('hidden');success.classList.remove('hidden');
     $('#successDetails').innerHTML=`<p><strong>Order #${o.orderNumber}</strong></p><p>${escapeHtml(o.customerName)}, ${o.audit?'your':'collect your'} <strong>${escapeHtml(o.pizzaName)}</strong> ${o.audit?'will be ready at the start of your break,':'at'} <strong>${escapeHtml(o.slot)}</strong>.</p>`;
+    rememberOrder(o);showNotifyOption(o);renderTrackers();
     history.pushState({view:'success'},'',`${location.pathname}#booked`);
     loadConfig().catch(()=>{});
-    window.scrollTo({top:0,behavior:'smooth'});
+    requestAnimationFrame(()=>success.scrollIntoView({behavior:'smooth',block:'start'}));
   }catch(error){showMessage(error.message);await loadConfig();}
   finally{submitButton.disabled=false;submitButton.textContent='Reserve my pizza';if(AUDIT_MODE&&state.config)submitButton.disabled=!auditOpen();}
 });
@@ -154,3 +156,98 @@ loadConfig().catch(error=>showMessage(error.message));
 setInterval(()=>{if(!document.hidden)loadConfig().catch(()=>{});},15000);
 window.addEventListener('focus',()=>loadConfig().catch(()=>{}));
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadConfig().catch(()=>{});});
+
+// ---- Order tracking: this phone remembers its orders and alerts when the kitchen marks one Ready ----
+const TRACK_KEY='pizzaPopOrders';
+const STATUS_TEXT={Pending:['📝','Order received','The kitchen has your order.'],Preparing:['🔥','In the oven','Your pizza is being made.'],Ready:['✅','READY – come and collect!','Your pizza is waiting at the pizza table.'],Collected:['😋','Collected','Enjoy your pizza!'],Cancelled:['✖️','Cancelled','Please speak to the pizza team.']};
+let tracked=[];
+try{tracked=JSON.parse(localStorage.getItem(TRACK_KEY)||'[]').filter(t=>t&&t.id);}catch{tracked=[];}
+function saveTracked(){try{localStorage.setItem(TRACK_KEY,JSON.stringify(tracked.slice(-10)));}catch{}}
+function rememberOrder(o){tracked=tracked.filter(t=>t.id!==o.id);tracked.push({id:o.id,orderNumber:o.orderNumber,pizzaName:o.pizzaName,slot:o.slot,audit:Boolean(o.audit),status:o.status||'Pending',latest:true});tracked.forEach(t=>{if(t.id!==o.id)t.latest=false;});saveTracked();}
+let audioCtx=null;
+function unlockSound(){try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();}catch{}}
+document.addEventListener('pointerdown',()=>{if(tracked.length)unlockSound();},{passive:true});
+function beep(){try{if(!audioCtx)return;const t0=audioCtx.currentTime;[0,0.35,0.7].forEach((d,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.value=i===2?1175:880;g.gain.setValueAtTime(0.0001,t0+d);g.gain.exponentialRampToValueAtTime(0.4,t0+d+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t0+d+0.3);o.connect(g).connect(audioCtx.destination);o.start(t0+d);o.stop(t0+d+0.32);});}catch{}}
+function readyAlert(t){
+  document.body.classList.add('ready-alert');setTimeout(()=>document.body.classList.remove('ready-alert'),12000);
+  try{navigator.vibrate&&navigator.vibrate([400,150,400,150,800]);}catch{}
+  beep();
+  setTimeout(()=>{const card=document.querySelector('#success:not(.hidden) .status-ready, #myOrders:not(.hidden) .status-ready');card&&card.scrollIntoView({behavior:'smooth',block:'center'});},50);
+  const original=document.title;document.title=`✅ Pizza #${t.orderNumber} READY!`;setTimeout(()=>{document.title=original;},60000);
+}
+function trackerCard(t){
+  const [icon,title,text]=STATUS_TEXT[t.status]||STATUS_TEXT.Pending;
+  const steps=['Pending','Preparing','Ready','Collected'],idx=steps.indexOf(t.status);
+  return `<div class="tracker-card status-${escapeHtml(String(t.status).toLowerCase())}"><div class="tracker-top"><span class="tracker-icon">${icon}</span><div><strong>${escapeHtml(title)}</strong><small>Order #${escapeHtml(t.orderNumber)} · ${escapeHtml(t.pizzaName||'')} · ${t.audit?'audit break ':''}${escapeHtml(t.slot||'')}</small></div></div>`+
+    (t.status==='Cancelled'?`<p class="tracker-text">${escapeHtml(text)}</p>`:`<ol class="tracker-steps">${steps.map((s,i)=>`<li class="${i<idx?'done':i===idx?'now':''}">${s==='Pending'?'Received':s}</li>`).join('')}</ol><p class="tracker-text">${escapeHtml(text)}</p>`)+`</div>`;
+}
+function renderTrackers(){
+  const latest=tracked.find(t=>t.latest);
+  $('#successTracker').innerHTML=latest?trackerCard(latest):'';
+  const showing=tracked.filter(t=>t.status!=='Collected'||Date.now()-(t.collectedAt||0)<10*60*1000);
+  const panel=$('#myOrders');
+  if(showing.length&&success.classList.contains('hidden')){panel.innerHTML=`<h2>Your orders</h2>${showing.map(trackerCard).join('')}`;panel.classList.remove('hidden');}
+  else panel.classList.add('hidden');
+}
+let tracking=false;
+async function refreshTracked(){
+  if(tracking||!tracked.length)return;tracking=true;
+  try{
+    for(const t of [...tracked]){
+      try{
+        const r=await fetch(`/api/orders/${encodeURIComponent(t.id)}/status`,{cache:'no-store'});
+        if(r.status===404){tracked=tracked.filter(x=>x.id!==t.id);continue;}
+        if(!r.ok)continue;
+        const o=(await r.json()).order;
+        if(o.status==='Ready'&&t.status!=='Ready')readyAlert(o);
+        if(o.status==='Collected'&&t.status!=='Collected')t.collectedAt=Date.now();
+        Object.assign(t,{status:o.status,orderNumber:o.orderNumber,pizzaName:o.pizzaName,slot:o.slot,audit:o.audit});
+      }catch{}
+    }
+    tracked=tracked.filter(t=>!(t.status==='Collected'&&Date.now()-(t.collectedAt||0)>60*60*1000)&&t.status!=='Cancelled'||t.latest);
+    saveTracked();renderTrackers();
+  }finally{tracking=false;}
+}
+setInterval(()=>{if(!document.hidden)refreshTracked();},8000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshTracked();});
+window.addEventListener('focus',()=>refreshTracked());
+renderTrackers();refreshTracked();
+const _origShowForm=showOrderForm;
+// Re-render the tracker panel whenever the order form is shown again.
+showOrderForm=function(...args){const r=_origShowForm.apply(this,args);renderTrackers();return r;};
+
+// ---- Pop-up notifications (Android/desktop browsers; iPhone only when added to the Home Screen) ----
+let pushKey='';
+fetch('/api/push-key',{cache:'no-store'}).then(r=>r.json()).then(d=>{pushKey=d.publicKey||'';}).catch(()=>{});
+function pushSupported(){return 'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;}
+function urlB64(base64){const pad='='.repeat((4-base64.length%4)%4),b=(base64+pad).replace(/-/g,'+').replace(/_/g,'/'),raw=atob(b);return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));}
+let notifyOrder=null;
+function showNotifyOption(o){
+  notifyOrder=o;const box=$('#notifyBox'),btn=$('#notifyButton'),help=$('#notifyHelp');
+  box.classList.remove('hidden');btn.disabled=false;
+  const ios=/iPhone|iPad|iPod/.test(navigator.userAgent),standalone=window.matchMedia&&matchMedia('(display-mode: standalone)').matches;
+  if(!pushSupported()){btn.classList.add('hidden');help.textContent=ios&&!standalone?'On iPhone, pop-up alerts only work if this page is added to your Home Screen. Keep this page open instead and it will beep when your pizza is ready.':'Pop-up alerts are not available on this browser. Keep this page open instead.';return;}
+  btn.classList.remove('hidden');
+  if(Notification.permission==='denied'){btn.classList.add('hidden');help.textContent='Notifications are blocked for this site in your browser settings. Keep this page open instead.';return;}
+  if(Notification.permission==='granted'){subscribeForOrder(o,true);return;}
+  btn.textContent='🔔 Notify me when it\'s ready';help.textContent='Get a pop-up on your phone even if this page is closed.';
+}
+async function subscribeForOrder(o,silent){
+  const btn=$('#notifyButton'),help=$('#notifyHelp');
+  try{
+    if(!pushKey){const d=await (await fetch('/api/push-key',{cache:'no-store'})).json();pushKey=d.publicKey||'';}
+    if(!pushKey)throw new Error('Notifications are not set up yet.');
+    const reg=await navigator.serviceWorker.register('/sw.js');await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64(pushKey)});
+    const r=await fetch(`/api/orders/${encodeURIComponent(o.id)}/push`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({subscription:sub.toJSON()})});
+    if(!r.ok)throw new Error((await r.json()).error||'Could not turn on notifications.');
+    btn.textContent='✓ You\'ll get a pop-up when it\'s ready';btn.disabled=true;help.textContent='';
+  }catch(error){if(!silent){help.textContent=(error&&error.message)||'Could not turn on notifications. Keep this page open instead.';}else{btn.textContent='🔔 Notify me when it\'s ready';}}
+}
+$('#notifyButton').addEventListener('click',async()=>{
+  if(!notifyOrder)return;unlockSound();
+  const perm=await Notification.requestPermission();
+  if(perm!=='granted'){$('#notifyHelp').textContent='No problem: keep this page open and it will beep when your pizza is ready.';$('#notifyButton').classList.add('hidden');return;}
+  subscribeForOrder(notifyOrder,false);
+});

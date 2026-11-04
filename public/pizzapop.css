@@ -132,3 +132,56 @@ footer .donate-note{color:#dfe5f3}
 .reset-zone h2{color:var(--pop-red);margin-top:0}
 .reset-button{border:2px solid var(--pop-red);background:#fff3f3;color:var(--pop-red);font-weight:900;border-radius:12px;padding:12px 16px;cursor:pointer;font:inherit;font-weight:900}
 .reset-button:hover{background:var(--pop-red);color:#fff}
+
+/* ---- Phone number (optional) ---- */
+.phone-label{margin-top:14px}
+.phone-label .optional{font-weight:600;color:var(--muted)}
+.phone-help{margin:6px 0 0}
+
+/* ---- Order tracker on the customer's phone ---- */
+.my-orders{background:#fff;border:3px solid var(--navy);border-radius:20px;padding:14px;margin:0 0 18px;box-shadow:var(--shadow)}
+.my-orders h2{margin:0 0 10px;color:var(--navy);font-size:1.3rem}
+.tracker{margin:14px auto 6px;max-width:460px;text-align:left}
+.tracker-card{border:2px solid var(--line);border-radius:16px;padding:12px 14px;background:var(--paper);margin-bottom:10px}
+.tracker-top{display:flex;gap:12px;align-items:center}
+.tracker-icon{font-size:1.8rem}
+.tracker-top strong{display:block;color:var(--navy);font-size:1.1rem}
+.tracker-top small{display:block;color:var(--muted);font-weight:700}
+.tracker-steps{display:flex;gap:4px;list-style:none;padding:0;margin:12px 0 6px}
+.tracker-steps li{flex:1;text-align:center;font-size:.72rem;font-weight:800;color:var(--muted);padding-top:8px;border-top:5px solid var(--line)}
+.tracker-steps li.done{border-top-color:var(--navy);color:var(--navy)}
+.tracker-steps li.now{border-top-color:var(--pop-red);color:var(--pop-red)}
+.tracker-text{margin:4px 0 0;color:var(--navy);font-weight:650}
+.tracker-card.status-ready{background:#e3f4e6;border:3px solid var(--it-green)}
+.tracker-card.status-ready strong{color:#1f6b2d;font-size:1.3rem}
+.tracker-card.status-ready .tracker-steps li.now{border-top-color:var(--it-green);color:#1f6b2d}
+.tracker-card.status-cancelled{opacity:.8;border-style:dashed}
+.keep-open{font-weight:700;color:var(--navy);margin:8px 0 0}
+.notify-box{margin:10px auto 0;max-width:460px}
+.notify-button{width:100%;border:3px solid var(--navy);background:var(--navy);color:#fff;font:inherit;font-weight:900;font-size:1.05rem;border-radius:14px;padding:12px 14px;cursor:pointer}
+.notify-button:disabled{background:#e3f4e6;color:#1f6b2d;border-color:var(--it-green);cursor:default}
+body.ready-alert{animation:readyFlash .8s ease-in-out 8}
+@keyframes readyFlash{50%{background-color:#bdf0c8}}
+
+/* ---- Kitchen board grouped by status ---- */
+.status-group{border:2px solid var(--navy);border-radius:18px;background:#fff;margin:0 0 12px;overflow:hidden}
+.status-group>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;background:var(--cream2);font-weight:900;color:var(--navy)}
+.status-group>summary::-webkit-details-marker{display:none}
+.status-group>summary::after{content:'▾';margin-left:auto;transition:transform .2s}
+.status-group:not([open])>summary::after{transform:rotate(-90deg)}
+.group-title{font-size:1.15rem}
+.group-count{background:var(--navy);color:#fff;border-radius:999px;padding:1px 10px;font-size:.9rem}
+.group-hint{font-weight:650;color:var(--muted);font-size:.85rem}
+.group-body{display:grid;gap:10px;padding:10px}
+.group-empty{margin:4px 6px;color:var(--muted)}
+.group-pending>summary{background:#fff4d6}
+.group-preparing>summary{background:#ffe6d6}
+.group-ready{border-color:var(--it-green)}
+.group-ready>summary{background:#e3f4e6;color:#1f6b2d}
+.group-ready .group-count{background:var(--it-green)}
+.group-collected>summary,.group-cancelled>summary{background:#f1f1f1;color:#555}
+.contact-row{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 2px}
+.whatsapp-button{display:inline-flex;align-items:center;gap:6px;background:#25d366;color:#073b1d;font-weight:900;text-decoration:none;border:2px solid #128c4a;border-radius:999px;padding:6px 12px}
+.whatsapp-button.pulse{animation:waPulse 1.4s ease-in-out infinite}
+@keyframes waPulse{50%{box-shadow:0 0 0 6px rgba(37,211,102,.35)}}
+.notify-chip{display:inline-flex;align-items:center;background:#eef2ff;color:var(--navy);border:2px solid var(--navy);border-radius:999px;padding:4px 10px;font-weight:800;font-size:.85rem}

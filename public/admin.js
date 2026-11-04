@@ -42,6 +42,7 @@ function renderSettings(){
   const activeId=document.activeElement?.id;
   $('#maxPizzas').value=settings.maxPizzas;
   for(const id of ['serviceStart','serviceEnd']){const field=$('#'+id),value=settings[id];if(value&&![...field.options].some(o=>o.value===value)){field.add(new Option(value+' (current)',value));}}
+  if($('#eventDate'))$('#eventDate').value=settings.eventDate||'';
   $('#serviceStart').value=settings.serviceStart||'';$('#serviceEnd').value=settings.serviceEnd||'';$('#pizzasPerSlot').value=settings.pizzasPerSlot||1;$('#slotMinutes').value=settings.slotMinutes||3;
   $('#auditEnabled').checked=Boolean(settings.auditEnabled);const breakSelect=$('#auditBreakStart');if(settings.auditBreakStart&&![...breakSelect.options].some(o=>o.value===settings.auditBreakStart)){breakSelect.add(new Option(settings.auditBreakStart+' (current)',settings.auditBreakStart));}breakSelect.value=settings.auditBreakStart||'';$('#auditBreakMinutes').value=settings.auditBreakMinutes;$('#auditPizzas').value=settings.auditPizzas;
   renderAuditPlan();
@@ -68,8 +69,8 @@ function formPlan(){
   return {step,start,end,per,times:times.length,staff,auditCount,auditOn,breakStart,breakLen,prepFrom,total,maxP,limit:Math.min(total,maxP||total)};
 }
 function changedFromSaved(){
-  const f={serviceStart:$('#serviceStart').value,serviceEnd:$('#serviceEnd').value,pizzasPerSlot:String(parseInt($('#pizzasPerSlot').value,10)),slotMinutes:String(parseInt($('#slotMinutes').value,10)),maxPizzas:String(parseInt($('#maxPizzas').value,10)),auditEnabled:$('#auditEnabled').checked,auditBreakStart:$('#auditBreakStart').value,auditBreakMinutes:String(parseInt($('#auditBreakMinutes').value,10)),auditPizzas:String(parseInt($('#auditPizzas').value,10))};
-  return f.serviceStart!==settings.serviceStart||f.serviceEnd!==settings.serviceEnd||f.pizzasPerSlot!==String(settings.pizzasPerSlot)||f.slotMinutes!==String(settings.slotMinutes)||f.maxPizzas!==String(settings.maxPizzas)||f.auditEnabled!==Boolean(settings.auditEnabled)||f.auditBreakStart!==settings.auditBreakStart||f.auditBreakMinutes!==String(settings.auditBreakMinutes)||f.auditPizzas!==String(settings.auditPizzas);
+  const f={eventDate:$('#eventDate')?$('#eventDate').value:settings.eventDate,serviceStart:$('#serviceStart').value,serviceEnd:$('#serviceEnd').value,pizzasPerSlot:String(parseInt($('#pizzasPerSlot').value,10)),slotMinutes:String(parseInt($('#slotMinutes').value,10)),maxPizzas:String(parseInt($('#maxPizzas').value,10)),auditEnabled:$('#auditEnabled').checked,auditBreakStart:$('#auditBreakStart').value,auditBreakMinutes:String(parseInt($('#auditBreakMinutes').value,10)),auditPizzas:String(parseInt($('#auditPizzas').value,10))};
+  return f.eventDate!==settings.eventDate||f.serviceStart!==settings.serviceStart||f.serviceEnd!==settings.serviceEnd||f.pizzasPerSlot!==String(settings.pizzasPerSlot)||f.slotMinutes!==String(settings.slotMinutes)||f.maxPizzas!==String(settings.maxPizzas)||f.auditEnabled!==Boolean(settings.auditEnabled)||f.auditBreakStart!==settings.auditBreakStart||f.auditBreakMinutes!==String(settings.auditBreakMinutes)||f.auditPizzas!==String(settings.auditPizzas);
 }
 function renderAuditPlan(){
   const p=formPlan(),a=audit||{},unsaved=changedFromSaved();
@@ -104,7 +105,7 @@ function render({preservePosition=true}={}){
     return `<div class="stat"><b>${left}/${total} left</b><span>${escapeHtml(name)} · ${reserved} ordered</span></div>`;
   }).join('');
   $('#summary').innerHTML=`<div class="stat"><b>${active.length}/${settings.maxPizzas||0}</b><span>Active pizzas</span></div><div class="stat audit-stat"><b>${auditActive}/${settings.auditPizzas||0}</b><span>Audit team</span></div>`+statuses.map(s=>`<div class="stat"><b>${orders.filter(o=>o.status===s).length}</b><span>${s}</span></div>`).join('');
-  $('#orders').innerHTML=filtered.length?filtered.map(orderCard).join(''):'<div class="order-card"><strong>No matching orders.</strong></div>';
+  $('#orders').innerHTML=filtered.length?groupedOrders(filtered):'<div class="order-card"><strong>No matching orders.</strong></div>';
   if(preservePosition){
     requestAnimationFrame(()=>{
       window.scrollTo({top:scrollY,behavior:'auto'});
@@ -116,15 +117,31 @@ function render({preservePosition=true}={}){
   }
 }
 
+// Kitchen board grouped by stage: Pending → Preparing → Ready → Collected (+ Cancelled).
+const GROUPS=[['Pending','📝 Pending','New orders, not started'],['Preparing','🔥 Preparing','In the oven'],['Ready','✅ Ready','Waiting to be collected'],['Collected','😋 Collected',''],['Cancelled','✖️ Cancelled','']];
+const groupOpen={Pending:true,Preparing:true,Ready:true,Collected:false,Cancelled:false};
+function groupedOrders(list){
+  return GROUPS.map(([status,title,hint])=>{
+    const items=list.filter(o=>o.status===status);
+    const body=items.length?items.map(orderCard).join(''):`<p class="group-empty">No orders here.</p>`;
+    return `<details class="status-group group-${status.toLowerCase()}" data-group="${status}" ${groupOpen[status]?'open':''}><summary><span class="group-title">${title}</span><span class="group-count">${items.length}</span>${hint?`<span class="group-hint">${hint}</span>`:''}</summary><div class="group-body">${body}</div></details>`;
+  }).join('');
+}
+$('#orders').addEventListener('toggle',event=>{const g=event.target.closest&&event.target.closest('[data-group]');if(g)groupOpen[g.dataset.group]=g.open;},true);
+function whatsappLink(o){
+  const first=String(o.customerName||'').trim().split(/\s+/)[0];
+  const msg=`Hi ${first}, your ${o.pizzaName} (order #${o.orderNumber}) is ready to collect from the pizza table 🍕 – ED Pizza & Pop`;
+  return `https://wa.me/${encodeURIComponent(o.phone)}?text=${encodeURIComponent(msg)}`;
+}
 function orderCard(o){
   const details=o.toppings.length?o.toppings.join(', '):'Cheese only';
-  return `<article class="order-card ${o.status==='Cancelled'?'cancelled-order':''} ${o.audit?'audit-order':''}" data-card-id="${escapeHtml(o.id)}"><div class="order-actions"><span class="time-order-label ${o.audit?'audit-label':''}">${o.audit?'AUDIT TEAM · READY BY':'TIME ORDER:'} ${escapeHtml(o.slot)}</span><button class="delete-order" data-delete-order="${escapeHtml(o.id)}" type="button">× Remove</button></div><div class="order-top"><div><div class="order-number">#${o.orderNumber} · ${escapeHtml(o.customerName)}</div><strong>${escapeHtml(o.pizzaName)}</strong></div><span class="slot-pill">${escapeHtml(o.slot)}</span></div><div class="order-meta">${o.base==='barbecue'?'Barbecue sauce':'Tomato sauce'} · ${escapeHtml(details)} · Drink: ${escapeHtml(o.drink||'No drink')}${o.oil!=='None'?` · ${escapeHtml(o.oil)}`:''}</div><div class="status-row">${statuses.map(s=>`<button class="status-button ${o.status===s?'active':''}" data-order="${escapeHtml(o.id)}" data-status="${s}" type="button">${s}</button>`).join('')}</div></article>`;
+  return `<article class="order-card ${o.status==='Cancelled'?'cancelled-order':''} ${o.audit?'audit-order':''}" data-card-id="${escapeHtml(o.id)}"><div class="order-actions"><span class="time-order-label ${o.audit?'audit-label':''}">${o.audit?'AUDIT TEAM · READY BY':'TIME ORDER:'} ${escapeHtml(o.slot)}</span><button class="delete-order" data-delete-order="${escapeHtml(o.id)}" type="button">× Remove</button></div><div class="order-top"><div><div class="order-number">#${o.orderNumber} · ${escapeHtml(o.customerName)}</div><strong>${escapeHtml(o.pizzaName)}</strong></div><span class="slot-pill">${escapeHtml(o.slot)}</span></div>${o.phone||o.notify?`<div class="contact-row">${o.phone?`<a class="whatsapp-button ${o.status==='Ready'?'pulse':''}" href="${whatsappLink(o)}" target="_blank" rel="noopener">💬 WhatsApp ${escapeHtml(o.phone.replace(/^44/,'0'))}</a>`:''}${o.notify?'<span class="notify-chip">🔔 Pop-up alert on</span>':''}</div>`:''}<div class="order-meta">${o.base==='barbecue'?'Barbecue sauce':'Tomato sauce'} · ${escapeHtml(details)} · Drink: ${escapeHtml(o.drink||'No drink')}${o.oil!=='None'?` · ${escapeHtml(o.oil)}`:''}</div><div class="status-row">${statuses.map(s=>`<button class="status-button ${o.status===s?'active':''}" data-order="${escapeHtml(o.id)}" data-status="${s}" type="button">${s}</button>`).join('')}</div></article>`;
 }
 
 async function saveSettings(){
   const unavailable=[...document.querySelectorAll('#ingredientControls input:not(:checked)')].map(i=>i.value);
   try{
-    const data=await request('/api/admin/settings',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({maxPizzas:Number($('#maxPizzas').value),serviceStart:$('#serviceStart').value,serviceEnd:$('#serviceEnd').value,pizzasPerSlot:Number($('#pizzasPerSlot').value),slotMinutes:Number($('#slotMinutes').value),auditEnabled:$('#auditEnabled').checked,auditBreakStart:$('#auditBreakStart').value,auditBreakMinutes:Number($('#auditBreakMinutes').value),auditPizzas:Number($('#auditPizzas').value),unavailableIngredients:unavailable})});
+    const data=await request('/api/admin/settings',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({eventDate:$('#eventDate')?$('#eventDate').value:undefined,maxPizzas:Number($('#maxPizzas').value),serviceStart:$('#serviceStart').value,serviceEnd:$('#serviceEnd').value,pizzasPerSlot:Number($('#pizzasPerSlot').value),slotMinutes:Number($('#slotMinutes').value),auditEnabled:$('#auditEnabled').checked,auditBreakStart:$('#auditBreakStart').value,auditBreakMinutes:Number($('#auditBreakMinutes').value),auditPizzas:Number($('#auditPizzas').value),unavailableIngredients:unavailable})});
     settings=data.settings;await refresh(true);renderSettings();render();
     show($('#adminMessage'),'Kitchen availability saved. Customer options are updated immediately.');
   }catch(error){show($('#adminMessage'),error.message);}
@@ -175,7 +192,7 @@ $('#resetOrders').onclick=async()=>{
   try{const data=await request('/api/admin/reset',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({confirm:'RESET'})});await refresh(true);show($('#adminMessage'),`Done: ${data.removed} order(s) removed. The board is back to zero.`);window.scrollTo({top:0,behavior:'smooth'});}
   catch(error){show($('#adminMessage'),error.message);}
 };
-['serviceStart','serviceEnd','slotMinutes','pizzasPerSlot','maxPizzas','auditEnabled','auditBreakStart','auditBreakMinutes','auditPizzas'].forEach(id=>{const el=document.getElementById(id);el.addEventListener('input',renderAuditPlan);el.addEventListener('change',renderAuditPlan);});
+['eventDate','serviceStart','serviceEnd','slotMinutes','pizzasPerSlot','maxPizzas','auditEnabled','auditBreakStart','auditBreakMinutes','auditPizzas'].forEach(id=>{const el=document.getElementById(id);el.addEventListener('input',renderAuditPlan);el.addEventListener('change',renderAuditPlan);});
 $('#search').oninput=()=>render({preservePosition:false});
 $('#logout').onclick=()=>{sessionStorage.removeItem('glamfestAdminPin');location.reload();};
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&pin)refresh(true);});
