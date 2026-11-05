@@ -23,14 +23,22 @@ function applyEventFinished(finished){
   if(finished){form.classList.add('hidden');const hint=document.querySelector('#eventClosed .muted');let mine=[];try{mine=JSON.parse(localStorage.getItem('pizzaPopOrders')||'[]');}catch{}if(hint)hint.classList.toggle('hidden',!mine.length);}
   else if(success.classList.contains('hidden'))form.classList.remove('hidden');
 }
+// Friendly banner while the app is reconnecting (e.g. hosting database outage); retries automatically.
+let outageTimer=null;
+function showOutage(on){
+  const b=$('#outageBanner');if(!b)return;
+  b.classList.toggle('hidden',!on);
+  if(on&&!outageTimer)outageTimer=setInterval(()=>loadConfig().catch(()=>{}),10000);
+  if(!on&&outageTimer){clearInterval(outageTimer);outageTimer=null;hideMessage();}
+}
 async function loadConfig({preserveSelection=true}={}){
   if(loadingConfig)return;
   loadingConfig=true;
   try{
     const previousSlot=preserveSelection?$('#slot').value:'';
     const response=await fetch('/api/config',{cache:'no-store'});
-    if(!response.ok)throw new Error('Unable to load ordering information.');
-    state.config=await response.json();
+    if(!response.ok){const data=await response.json().catch(()=>({}));if(response.status===503||response.status>=500)showOutage(true);throw new Error(data.error||'Unable to load ordering information.');}
+    state.config=await response.json();showOutage(false);
     applyEventFinished(state.config.eventFinished);
     showEventDate(state.config.eventDate);
     renderChoices();

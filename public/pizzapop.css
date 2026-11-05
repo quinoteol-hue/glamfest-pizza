@@ -327,3 +327,10 @@ body.ready-alert{animation:readyFlash .8s ease-in-out 8}
 .switch:not(:checked){background:#cfc8b8!important}
 .switch:focus{outline:none!important;box-shadow:none}
 .switch:focus-visible{outline:3px solid rgba(29,47,92,.35)!important;outline-offset:2px}
+
+/* Outage banner (hosting / database hiccup) */
+.outage-banner{display:flex;align-items:center;gap:12px;background:#fff6dc;border:3px solid #e0a23a;color:#5a3d00;border-radius:18px;padding:14px 16px;margin:0 0 18px;box-shadow:var(--shadow)}
+.outage-banner strong{display:block;font-size:1.05rem}
+.outage-banner small{display:block;font-weight:600}
+.outage-spin{font-size:1.8rem;animation:outageSpin 2.4s linear infinite}
+@keyframes outageSpin{to{transform:rotate(360deg)}}

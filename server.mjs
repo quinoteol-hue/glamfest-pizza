@@ -84,7 +84,7 @@ let pool=null;
 function parseStore(parsed){parsed=parsed&&typeof parsed==='object'?parsed:{};return{orders:Array.isArray(parsed.orders)?parsed.orders:[],settings:normaliseSettings(parsed.settings),vapid:parsed.vapid&&parsed.vapid.publicKey?parsed.vapid:undefined};}
 async function ensureStore(){
   if(DATABASE_URL){
-    if(!pool){const {default:pg}=await import('pg');const local=/localhost|127\.0\.0\.1/.test(DATABASE_URL);pool=new pg.Pool({connectionString:DATABASE_URL,ssl:local||process.env.PGSSL==='disable'?false:{rejectUnauthorized:false},max:5});pool.on('error',err=>console.error('Postgres pool error:',err.message));}
+    if(!pool){const {default:pg}=await import('pg');const local=/localhost|127\.0\.0\.1/.test(DATABASE_URL);pool=new pg.Pool({connectionString:DATABASE_URL,ssl:local||process.env.PGSSL==='disable'?false:{rejectUnauthorized:false},max:5,connectionTimeoutMillis:10000,query_timeout:15000,idleTimeoutMillis:30000});pool.on('error',err=>console.error('Postgres pool error:',err.message));}
     await pool.query('CREATE TABLE IF NOT EXISTS pizza_store (id INTEGER PRIMARY KEY, data JSONB NOT NULL)');
     await pool.query('INSERT INTO pizza_store (id,data) VALUES (1,$1) ON CONFLICT (id) DO NOTHING',[JSON.stringify({orders:[],settings:defaultSettings()})]);
     return;
@@ -188,9 +188,19 @@ async function bodyJson(req){const chunks=[];let size=0;for await(const chunk of
 function isAdmin(req,url){return String(req.headers['x-admin-pin']||url.searchParams.get('pin')||'')===ADMIN_PIN;}
 
 
+// ---- Database outages: answer quickly with a friendly message instead of hanging ----
+let storeReady=false;
+const DB_DOWN_MESSAGE='The pizza app is having a short break – please try again in a minute.';
+function isDbError(error){
+  const text=String((error&&(error.code||''))+' '+(error&&error.message||'')).toLowerCase();
+  return /econnrefused|econnreset|etimedout|enotfound|eai_again|connection terminated|timeout exceeded|query read timeout|connection timeout|terminating connection|57p01|57p03|08006|08001|too many clients|database is starting up/.test(text);
+}
+function dbDown(res){res.setHeader('Retry-After','30');return sendJson(res,503,{error:DB_DOWN_MESSAGE});}
 const server=http.createServer(async(req,res)=>{
  try{
   const url=new URL(req.url,`http://${req.headers.host||'localhost'}`),pathname=decodeURIComponent(url.pathname);
+  if(pathname==='/health')return sendJson(res,200,{ok:true,database:storeReady?'connected':'reconnecting'});
+  if(pathname.startsWith('/api/')&&!storeReady)return dbDown(res);
   if(req.method==='GET'&&pathname==='/api/config'){
     const store=await readStore(),active=activeOrders(store),unavailable=new Set(store.settings.unavailableIngredients),prep=auditPrepSlots(store.settings);
     const perSlot={};for(const o of active)if(!o.audit)perSlot[o.slot]=(perSlot[o.slot]||0)+1;
@@ -199,7 +209,7 @@ const server=http.createServer(async(req,res)=>{
   }
   if(req.method==='GET'&&pathname==='/api/qr'){const configured=cleanText(process.env.PUBLIC_URL,300),origin=configured||`${req.headers['x-forwarded-proto']||'http'}://${req.headers.host}`,qr=u=>`https://api.qrserver.com/v1/create-qr-code/?size=900x900&ecc=H&data=${encodeURIComponent(u)}`,base=origin.replace(/\/+$/,''),auditUrl=`${base}/audit`;return sendJson(res,200,{url:origin,imageUrl:qr(origin),auditUrl,auditImageUrl:qr(auditUrl)});}
   if(req.method==='POST'&&pathname==='/api/orders'){
-    try{const payload=await bodyJson(req);const order=await mutateStore(store=>{const input=normaliseOrder(payload,store.settings);assertFits(input,activeOrders(store),store.settings);const now=new Date().toISOString();const created={id:crypto.randomUUID(),orderNumber:store.orders.reduce((m,o)=>Math.max(m,Number(o.orderNumber)||0),0)+1,...input,status:'Pending',createdAt:now,updatedAt:now};store.orders.push(created);return created;});return sendJson(res,201,{order,audit:order.audit?auditInfo((await readStore()).settings,[]):undefined});}catch(error){return sendJson(res,400,{error:error.message||'Unable to place the order.'});}
+    try{const payload=await bodyJson(req);const order=await mutateStore(store=>{const input=normaliseOrder(payload,store.settings);assertFits(input,activeOrders(store),store.settings);const now=new Date().toISOString();const created={id:crypto.randomUUID(),orderNumber:store.orders.reduce((m,o)=>Math.max(m,Number(o.orderNumber)||0),0)+1,...input,status:'Pending',createdAt:now,updatedAt:now};store.orders.push(created);return created;});return sendJson(res,201,{order,audit:order.audit?auditInfo((await readStore()).settings,[]):undefined});}catch(error){if(isDbError(error))return dbDown(res);return sendJson(res,400,{error:error.message||'Unable to place the order.'});}
   }
   if(pathname==='/api/admin/orders'&&req.method==='GET'){if(!isAdmin(req,url))return sendJson(res,401,{error:'Incorrect admin PIN.'});const store=await readStore(),active=activeOrders(store);return sendJson(res,200,{drinkStock:drinkChoices(active,store.settings).map(d=>({name:d.name,total:d.cans,ordered:d.ordered})),orders:[...store.orders].map(kitchenView).sort((a,b)=>a.slot.localeCompare(b.slot)||Number(Boolean(b.audit))-Number(Boolean(a.audit))||a.orderNumber-b.orderNumber),settings:store.settings,audit:auditInfo(store.settings,active),capacity:capacityInfo(store.settings),ingredients:[...TOPPINGS,...OILS.filter(o=>o!=='None')]});}
   if(pathname==='/api/admin/settings'&&req.method==='PATCH'){
@@ -216,20 +226,20 @@ const server=http.createServer(async(req,res)=>{
       if(busiest>next.pizzasPerSlot)throw new Error(`One time already has ${busiest} pizzas booked, so pizzas per slot cannot go below ${busiest}.`);
       const prep=auditPrepSlots(next),clash=active.filter(o=>!o.audit&&prep.has(o.slot));
       if(clash.length)throw new Error(`The audit cooking time (${[...prep].sort()[0]}–${next.auditBreakStart}) would overlap ${clash.length} staff order(s) already booked at ${[...new Set(clash.map(o=>o.slot))].sort().join(', ')}. Move or cancel those first, or change the break time.`);
-      store.settings=next;return next;});purgeContactsIfEventOver().catch(()=>{});return sendJson(res,200,{settings});}catch(error){return sendJson(res,400,{error:error.message});}
+      store.settings=next;return next;});purgeContactsIfEventOver().catch(()=>{});return sendJson(res,200,{settings});}catch(error){if(isDbError(error))return dbDown(res);return sendJson(res,400,{error:error.message});}
   }
   if(pathname==='/api/admin/reset'&&req.method==='POST'){
     if(!isAdmin(req,url))return sendJson(res,401,{error:'Incorrect admin PIN.'});
     try{const payload=await bodyJson(req);if(cleanText(payload.confirm,10)!=='RESET')throw new Error('Type RESET to confirm.');
       const removed=await mutateStore(store=>{const n=store.orders.length;store.orders=[];return n;});return sendJson(res,200,{removed});}
-    catch(error){return sendJson(res,400,{error:error.message});}
+    catch(error){if(isDbError(error))return dbDown(res);return sendJson(res,400,{error:error.message});}
   }
   const adminMatch=pathname.match(/^\/api\/admin\/orders\/([^/]+)$/);
   if(adminMatch&&req.method==='PATCH'){
     if(!isAdmin(req,url))return sendJson(res,401,{error:'Incorrect admin PIN.'});const allowed=new Set(['Pending','Preparing','Ready','Collected','Cancelled']),payload=await bodyJson(req),status=cleanText(payload.status,20);if(!allowed.has(status))return sendJson(res,400,{error:'Invalid status.'});
-    try{const order=await mutateStore(store=>{const found=store.orders.find(o=>o.id===adminMatch[1]);if(!found)throw new Error('Order not found.');if(status!=='Cancelled'&&found.status==='Cancelled'){if(found.audit)found.slot=store.settings.auditBreakStart;assertFits(found,activeOrders(store).filter(o=>o.id!==found.id),store.settings);}const wasReady=found.status==='Ready';found.status=status;found.updatedAt=new Date().toISOString();const notify=status==='Ready'&&!wasReady?{...found}:null;if(status==='Collected')forgetContact(found);return {order:kitchenView(found),notify,settings:store.settings};});if(order.notify)sendReadyPush(order.notify,order.settings);return sendJson(res,200,{order:order.order});}catch(error){return sendJson(res,400,{error:error.message});}
+    try{const order=await mutateStore(store=>{const found=store.orders.find(o=>o.id===adminMatch[1]);if(!found)throw new Error('Order not found.');if(status!=='Cancelled'&&found.status==='Cancelled'){if(found.audit)found.slot=store.settings.auditBreakStart;assertFits(found,activeOrders(store).filter(o=>o.id!==found.id),store.settings);}const wasReady=found.status==='Ready';found.status=status;found.updatedAt=new Date().toISOString();const notify=status==='Ready'&&!wasReady?{...found}:null;if(status==='Collected')forgetContact(found);return {order:kitchenView(found),notify,settings:store.settings};});if(order.notify)sendReadyPush(order.notify,order.settings);return sendJson(res,200,{order:order.order});}catch(error){if(isDbError(error))return dbDown(res);return sendJson(res,400,{error:error.message});}
   }
-  if(adminMatch&&req.method==='DELETE'){if(!isAdmin(req,url))return sendJson(res,401,{error:'Incorrect admin PIN.'});try{const deleted=await mutateStore(store=>{const index=store.orders.findIndex(o=>o.id===adminMatch[1]);if(index<0)throw new Error('Order not found.');return store.orders.splice(index,1)[0];});return sendJson(res,200,{deleted:kitchenView(deleted)});}catch(error){return sendJson(res,400,{error:error.message});}}
+  if(adminMatch&&req.method==='DELETE'){if(!isAdmin(req,url))return sendJson(res,401,{error:'Incorrect admin PIN.'});try{const deleted=await mutateStore(store=>{const index=store.orders.findIndex(o=>o.id===adminMatch[1]);if(index<0)throw new Error('Order not found.');return store.orders.splice(index,1)[0];});return sendJson(res,200,{deleted:kitchenView(deleted)});}catch(error){if(isDbError(error))return dbDown(res);return sendJson(res,400,{error:error.message});}}
   const trackMatch=pathname.match(/^\/api\/orders\/([0-9a-f-]{36})\/(status|push)$/);
   if(trackMatch&&trackMatch[2]==='status'&&req.method==='GET'){
     const store=await readStore(),o=store.orders.find(x=>x.id===trackMatch[1]);
@@ -242,7 +252,7 @@ const server=http.createServer(async(req,res)=>{
       const order=await mutateStore(store=>{const o=store.orders.find(x=>x.id===trackMatch[1]);if(!o)throw new Error('Order not found.');if(o.status==='Collected'||o.status==='Cancelled')throw new Error('This order is already finished.');o.push=clean;return {...o};});
       if(order.status==='Ready')sendReadyPush(order);
       return sendJson(res,200,{ok:true});}
-    catch(error){return sendJson(res,400,{error:error.message});}
+    catch(error){if(isDbError(error))return dbDown(res);return sendJson(res,400,{error:error.message});}
   }
   if(req.method==='GET'&&pathname==='/api/push-key')return sendJson(res,200,{publicKey:vapidReady?vapidPublicKey:''});
   if(req.method==='GET'&&pathname==='/api/board'){
@@ -256,11 +266,22 @@ const server=http.createServer(async(req,res)=>{
   const safePath=path.normalize(pathname).replace(/^(\.\.[/\\])+/,''),publicFile=path.join(__dirname,'public',safePath==='/'?'index.html':safePath);
   if(!publicFile.startsWith(path.join(__dirname,'public')))return sendJson(res,403,{error:'Forbidden.'});
   try{await fs.access(publicFile);return sendFile(res,publicFile);}catch{return sendFile(res,path.join(__dirname,'public','index.html'));}
- }catch(error){return sendJson(res,500,{error:error.message||'Server error.'});}
+ }catch(error){if(isDbError(error))return dbDown(res);console.error('Request failed:',error&&error.message);return sendJson(res,500,{error:'Something went wrong – please try again.'});}
 });
-await ensureStore();
-await setupPush().catch(error=>console.error('Push setup failed:',error.message));
-await purgeContactsIfEventOver().catch(()=>{});
+async function connectStorage(attempt=1){
+  try{
+    await ensureStore();storeReady=true;console.log(attempt>1?`Database reconnected (attempt ${attempt}).`:'Database connected.');
+    await setupPush().catch(error=>console.error('Push setup failed:',error.message));
+    await purgeContactsIfEventOver().catch(()=>{});
+  }catch(error){
+    storeReady=false;const wait=Math.min(30,5*attempt);
+    console.error(`Database not reachable (${error.message}). Retrying in ${wait}s…`);
+    setTimeout(()=>connectStorage(attempt+1),wait*1000).unref?.();
+  }
+}
+connectStorage();
+// If the database drops out mid-service, flip back to "reconnecting" and keep checking.
+setInterval(async()=>{if(!storeReady||!DATABASE_URL)return;try{await pool.query('SELECT 1');}catch(error){if(isDbError(error)){storeReady=false;console.error('Database connection lost:',error.message);connectStorage(2);}}},20000).unref();
 setInterval(()=>purgeContactsIfEventOver().catch(()=>{}),60*60*1000).unref();
 function shutdown(){server.close(()=>{(pool?pool.end():Promise.resolve()).finally(()=>process.exit(0));});setTimeout(()=>process.exit(0),8000).unref();}
 process.on('SIGTERM',shutdown);process.on('SIGINT',shutdown);
