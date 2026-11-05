@@ -13,7 +13,7 @@ self.addEventListener('push', event => {
     requireInteraction: true,
     vibrate: [400, 150, 400, 150, 800],
     icon: '/assets/pizza-icon.png',
-    badge: '/assets/pizza-icon.png',
+    badge: '/assets/pizza-badge.png',
     data: { url: data.url || '/' }
   }));
 });

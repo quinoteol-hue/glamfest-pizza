@@ -179,7 +179,7 @@ function assertFits(order,active,settings){
   if(!allSlots(settings).includes(order.slot))throw new Error('That collection time is no longer offered.');
   if(active.filter(o=>!o.audit&&o.slot===order.slot).length>=settings.pizzasPerSlot)throw new Error('That time has just been taken. Please choose another slot.');
 }
-const MIME={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.svg':'image/svg+xml','.json':'application/json; charset=utf-8'};
+const MIME={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.svg':'image/svg+xml','.json':'application/json; charset=utf-8','.ico':'image/x-icon','.webmanifest':'application/manifest+json'};
 function sendJson(res,status,value){const body=JSON.stringify(value);res.writeHead(status,{'content-type':MIME['.json'],'content-length':Buffer.byteLength(body),'cache-control':'no-store'});res.end(body);}
 function sendFile(res,filename){fs.readFile(filename).then(data=>{res.writeHead(200,{'content-type':MIME[path.extname(filename)]||'application/octet-stream','content-length':data.length});res.end(data);}).catch(()=>sendJson(res,404,{error:'Not found.'}));}
 async function bodyJson(req){const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>100_000)throw new Error('Request is too large.');chunks.push(chunk);}return chunks.length?JSON.parse(Buffer.concat(chunks).toString('utf8')):{};}

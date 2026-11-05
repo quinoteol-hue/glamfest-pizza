@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#1d2f5c">
-<title>Pizza &amp; Pop – Pizza status</title>
+<title>Pizza &amp; Pop – Pizza status</title><link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="manifest" href="/manifest.webmanifest"><meta name="apple-mobile-web-app-title" content="Pizza &amp; Pop"><meta name="application-name" content="Pizza &amp; Pop">
 <style>
 :root{--navy:#1d2f5c;--navy2:#26396b;--red:#a51f24;--green:#2e8b3e;--mint:#b9f5c4;--gold:#f2b740;--cream:#fbf5e6}
 *{box-sizing:border-box}
@@ -60,38 +60,100 @@ button.on{background:#fff;color:var(--navy)}
 @keyframes pop{from{transform:scale(.85);opacity:.3}to{transform:none;opacity:1}}
 @keyframes flash{50%{background:var(--gold)}}
 @keyframes pulse{50%{box-shadow:0 0 0 6px rgba(46,139,62,.3)}}
-@media(max-width:900px){main{grid-template-columns:1fr}.ready .list{grid-template-columns:1fr}}
+.tabs{display:none}
+.search{display:flex;align-items:center;gap:6px}
+@media(max-width:900px) and (min-width:701px){main{grid-template-columns:1fr}.ready .list{grid-template-columns:1fr}}
+/* ---------- Phone layout: light Pizza & Pop look, tabs, compact cards ---------- */
+@media(max-width:700px){
+  body{background:var(--cream);color:var(--navy)}
+  header{flex-wrap:nowrap;padding:10px 14px;border-bottom-width:4px;position:relative;color:#fff}
+  header a,header .clock{color:#fff}
+  header h1{font-size:1.35rem;order:2;flex:1;text-align:center}
+  .head-right{display:contents}
+  .back{order:1;border-width:2px;padding:6px 10px;font-size:.85rem}.back-text{display:none}
+  .clock{order:3;font-size:1rem;opacity:.9}
+  .finished{font-size:.9rem;padding:8px 12px}
+  .mine{margin:12px 12px 0;border-width:3px;box-shadow:0 6px 18px rgba(29,47,92,.15)}
+  .mine h2{font-size:1rem;text-transform:uppercase;letter-spacing:.06em;color:#8a6a00}
+  .mine-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:4px 12px}
+  .mine-txt strong{font-size:1.05rem}
+  .mine-num{font-size:1.6rem}
+  .pill{margin-left:auto;font-size:.85rem}
+  .steps{grid-column:1/-1;display:flex;gap:4px;margin-top:6px}
+  .steps i{flex:1;height:6px;border-radius:99px;background:#e8e1cf}
+  .steps i.on{background:var(--navy)}.steps.Ready i.on{background:var(--green)}
+  .lookup{margin:12px 12px 0;display:block}
+  .lookup label{position:absolute;left:-9999px}
+  .search{background:#fff;border:2px solid #d6ccb7;border-radius:14px;padding:0 12px}
+  .search:focus-within{border-color:var(--navy)}
+  .lookup input{flex:1;width:auto;border:0;background:transparent;color:var(--navy);min-height:46px;padding:0;font-size:1rem}
+  .lookup input::placeholder{color:#9a937f}
+  .lookup output{display:block;margin:6px 4px 0;font-size:.9rem}
+  .tabs{display:flex;gap:6px;position:sticky;top:0;z-index:5;background:var(--cream);padding:10px 12px;margin-top:4px;box-shadow:0 6px 10px -8px rgba(29,47,92,.35)}
+  .tabs button{flex:1;border:2px solid var(--navy);background:#fff;color:var(--navy);border-radius:12px;padding:8px 4px;font-size:.85rem;display:flex;flex-direction:column;align-items:center;gap:2px;line-height:1.1}
+  .tabs button b{font-size:1.15rem}
+  .tabs button.active{background:var(--navy);color:#fff}
+  .tabs button[data-col=ready].active{background:var(--green);border-color:var(--green)}
+  main{display:block;padding:6px 12px 12px}
+  section{display:none;background:transparent;padding:0}
+  section.active{display:block}
+  h2.col{display:none}
+  .col-hint{margin:2px 2px 10px;opacity:1;color:#5c6378;font-weight:700;font-size:.85rem}
+  .list,.ready .list{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .card{flex-direction:column;align-items:flex-start;gap:4px;padding:10px 12px;border-radius:14px;background:#fff!important;border:2px solid #e3dccb!important;color:var(--navy);box-shadow:0 2px 6px rgba(29,47,92,.08)}
+  .ready .card{border-color:var(--green)!important;background:#eaf7ec!important}
+  .oven .card{border-color:#f0a46a!important;background:#fff5ec!important}
+  .num,.oven .num,.received .num{font-size:1.5rem}
+  .ready .num{color:var(--green)}
+  .who strong{font-size:1.05rem;word-break:break-word}
+  .who small{font-size:.78rem;opacity:1;color:#5c6378}
+  .card.me{outline:3px solid var(--gold)}
+  .card.found{outline:3px solid var(--navy)}
+  .empty{color:#5c6378;font-size:1rem;grid-column:1/-1}
+  footer{color:var(--navy);padding:6px 14px 18px;font-size:.85rem}
+  footer button{border-color:var(--navy);color:var(--navy);font-size:.8rem;padding:6px 12px}
+  footer button.on{background:var(--navy);color:#fff}
+  .offline{color:var(--red)}
+}
 </style>
 </head>
 <body>
-<header><h1>🍕 Pizza status</h1><div class="head-right"><a class="back" href="/">← Order a pizza</a><div class="clock" id="clock">--:--</div></div></header>
+<header><h1>🍕 Pizza status</h1><div class="head-right"><a class="back" href="/"><span>←</span><span class="back-text"> Order a pizza</span></a><div class="clock" id="clock">--:--</div></div></header>
 <div class="finished" id="finished">🏁 Pizza day has finished – thank you, ED team!</div>
 <div class="mine" id="mine"><h2>Your pizza</h2><div id="mineList"></div></div>
-<div class="lookup"><label for="find">Find an order number:</label><input id="find" inputmode="numeric" placeholder="e.g. 12"><output id="findResult"></output></div>
+<div class="lookup"><label for="find">Find an order number:</label><div class="search"><span aria-hidden="true">🔎</span><input id="find" inputmode="numeric" placeholder="Order number, e.g. 12" autocomplete="off"></div><output id="findResult"></output></div>
+<nav class="tabs" role="tablist" aria-label="Pizza stages"><button type="button" role="tab" data-col="ready">✅ Ready <b id="tReady">0</b></button><button type="button" role="tab" data-col="oven">🔥 Oven <b id="tOven">0</b></button><button type="button" role="tab" data-col="received">📝 Received <b id="tRec">0</b></button></nav>
 <main>
-  <section class="ready"><h2 class="col">✅ Ready to collect <span class="count" id="readyCount">0</span></h2><p class="col-hint">Come to the pizza table</p><div class="list" id="readyList"></div></section>
-  <section class="oven"><h2 class="col">🔥 In the oven <span class="count" id="ovenCount">0</span></h2><p class="col-hint">Being made now</p><div class="list" id="ovenList"></div></section>
-  <section class="received"><h2 class="col">📝 Received <span class="count" id="recCount">0</span></h2><p class="col-hint">Waiting for its time</p><div class="list" id="recList"></div></section>
+  <section class="ready" data-col="ready"><h2 class="col">✅ Ready to collect <span class="count" id="readyCount">0</span></h2><p class="col-hint">Come to the pizza table</p><div class="list" id="readyList"></div></section>
+  <section class="oven" data-col="oven"><h2 class="col">🔥 In the oven <span class="count" id="ovenCount">0</span></h2><p class="col-hint">Being made now</p><div class="list" id="ovenList"></div></section>
+  <section class="received" data-col="received"><h2 class="col">📝 Received <span class="count" id="recCount">0</span></h2><p class="col-hint">Waiting for its time</p><div class="list" id="recList"></div></section>
 </main>
 <footer><span id="status">Connecting…</span><button id="sound" type="button">🔇 Tap to turn on sound</button></footer>
 <script>
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 const LABEL={Pending:'📝 Received',Preparing:'🔥 In the oven',Ready:'✅ READY – collect now',Collected:'😋 Collected',Cancelled:'✖️ Cancelled'};
-let seen=null,audio=null,soundOn=false,lastData=null;
+let seen=null,audio=null,soundOn=false,lastData=null,activeCol='ready',tabChosen=false;
+const COL_OF={Pending:'received',Preparing:'oven',Ready:'ready'};
+function setTab(col,byUser){activeCol=col;if(byUser)tabChosen=true;document.querySelectorAll('.tabs button').forEach(b=>{const on=b.dataset.col===col;b.classList.toggle('active',on);b.setAttribute('aria-selected',on);});document.querySelectorAll('main section').forEach(sec=>sec.classList.toggle('active',sec.dataset.col===col));}
+document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.col,true)));
+setTab('ready');
 // Orders placed on this phone (saved by the ordering page).
 function myOrders(){try{return JSON.parse(localStorage.getItem('pizzaPopOrders')||'[]').filter(o=>o&&o.id);}catch{return [];}}
 $('#sound').onclick=()=>{try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();audio.resume();soundOn=!soundOn;$('#sound').classList.toggle('on',soundOn);$('#sound').textContent=soundOn?'🔔 Sound on':'🔇 Tap to turn on sound';if(soundOn)chime();}catch{}};
 function chime(){if(!soundOn||!audio)return;const t=audio.currentTime;[659,880,1175].forEach((f,i)=>{const o=audio.createOscillator(),g=audio.createGain();o.frequency.value=f;g.gain.setValueAtTime(.0001,t+i*.18);g.gain.exponentialRampToValueAtTime(.35,t+i*.18+.02);g.gain.exponentialRampToValueAtTime(.0001,t+i*.18+.5);o.connect(g).connect(audio.destination);o.start(t+i*.18);o.stop(t+i*.18+.55);});}
 function card(o,mineSet){const me=mineSet.has(o.orderNumber);return `<div class="card${me?' me':''}" id="order-${esc(o.orderNumber)}"><div class="num">#${esc(o.orderNumber)}</div><div class="who"><strong>${esc(o.name)}${o.audit?'<span class="tag">AUDIT</span>':''}${me?'<span class="tag">YOU</span>':''}</strong><small>${esc(o.pizzaName)}${o.slot?` · ${esc(o.slot)}`:''}</small></div></div>`;}
 function fill(id,list,mineSet,emptyText){$(id).innerHTML=list.length?list.map(o=>card(o,mineSet)).join(''):`<p class="empty">${emptyText}</p>`;}
+let firstMineDone=false;
 async function renderMine(){
   const mine=myOrders();if(!mine.length){$('#mine').style.display='none';return;}
   const rows=[];
   for(const t of mine.slice(-5)){
     try{const r=await fetch(`/api/orders/${encodeURIComponent(t.id)}/status`,{cache:'no-store'});if(!r.ok)continue;const o=(await r.json()).order;
       if(o.status==='Collected'&&Date.now()-new Date(o.updatedAt).getTime()>2*3600e3)continue;
-      rows.push(`<div class="mine-item"><div class="mine-num">#${esc(o.orderNumber)}</div><div class="mine-txt"><strong>${esc(o.pizzaName)}</strong><small>${o.audit?'Audit break · ':''}${esc(o.slot)}</small></div><span class="pill ${esc(o.status)}">${LABEL[o.status]||esc(o.status)}</span></div>`);}catch{}
+      const stage=['Pending','Preparing','Ready','Collected'].indexOf(o.status);
+      rows.push(`<div class="mine-item"><div class="mine-num">#${esc(o.orderNumber)}</div><div class="mine-txt"><strong>${esc(o.pizzaName)}</strong><small>${o.audit?'Audit break · ':''}${esc(o.slot)}</small></div><span class="pill ${esc(o.status)}">${LABEL[o.status]||esc(o.status)}</span>${stage>=0?`<div class="steps ${esc(o.status)}">${[0,1,2].map(i=>`<i class="${i<=stage?'on':''}"></i>`).join('')}</div>`:''}</div>`);
+      if(!tabChosen&&COL_OF[o.status]&&!firstMineDone){setTab(COL_OF[o.status]);firstMineDone=true;}}catch{}
   }
   $('#mine').style.display=rows.length?'block':'none';$('#mineList').innerHTML=rows.join('');
 }
@@ -99,7 +161,7 @@ function findOrder(){
   const n=$('#find').value.replace(/\D/g,'');document.querySelectorAll('.card.found').forEach(c=>c.classList.remove('found'));
   if(!n){$('#findResult').textContent='';return;}
   const el=document.getElementById('order-'+n);
-  if(el){el.classList.add('found');el.scrollIntoView({behavior:'smooth',block:'center'});const col=el.closest('section').classList.contains('ready')?'✅ Ready to collect':el.closest('section').classList.contains('oven')?'🔥 In the oven':'📝 Received';$('#findResult').textContent=`#${n}: ${col}`;}
+  if(el){setTab(el.closest('section').dataset.col);el.classList.add('found');el.scrollIntoView({behavior:'smooth',block:'center'});const col=el.closest('section').classList.contains('ready')?'✅ Ready to collect':el.closest('section').classList.contains('oven')?'🔥 In the oven':'📝 Received';$('#findResult').textContent=`#${n}: ${col}`;}
   else $('#findResult').textContent=`#${n} isn't on the board – it may already be collected.`;
 }
 $('#find').addEventListener('input',findOrder);
@@ -110,7 +172,7 @@ async function load(){
     fill('#readyList',[...d.ready].reverse(),mineSet,'Nothing waiting – pizzas appear here as soon as they are ready.');
     fill('#ovenList',d.preparing,mineSet,'Nothing in the oven right now.');
     fill('#recList',(d.received||[]).sort((a,b)=>String(a.slot).localeCompare(String(b.slot))),mineSet,'No orders waiting.');
-    $('#readyCount').textContent=d.ready.length;$('#ovenCount').textContent=d.preparing.length;$('#recCount').textContent=(d.received||[]).length;
+    $('#readyCount').textContent=$('#tReady').textContent=d.ready.length;$('#ovenCount').textContent=$('#tOven').textContent=d.preparing.length;$('#recCount').textContent=$('#tRec').textContent=(d.received||[]).length;
     $('#finished').style.display=d.eventFinished?'block':'none';
     const ids=new Set(d.ready.map(o=>o.orderNumber));
     if(seen&&[...ids].some(n=>!seen.has(n)))chime();
