@@ -41,18 +41,27 @@ async function loadConfig({preserveSelection=true}={}){
   }finally{loadingConfig=false;}
 }
 
+// Drinks as tappable cards. When drinks are served, everyone must pick one (or "No drink, thanks")
+// so nobody misses it by accident. The whole step is hidden when the kitchen turns drinks off.
+let drinkPicked=false;
+const DRINK_COLOURS={'orange':'#f28c28','apple':'#7cc242','coke zero':'#1a1a1a','diet coke':'#c9c9c9','coke':'#d6202a','sprite':'#2fa84f','fanta':'#ff8c00','pepsi':'#1f4fa3','water':'#7fc8f0','7up':'#2fa84f','dr pepper':'#6d1e2c','irn':'#f07f1a','lilt':'#f5c400'};
+function drinkColour(name){const n=name.toLowerCase();for(const k of Object.keys(DRINK_COLOURS))if(n.includes(k))return DRINK_COLOURS[k];return '#1d2f5c';}
+function canSvg(colour){return `<svg class="can" viewBox="0 0 40 64" aria-hidden="true"><rect x="5" y="6" width="30" height="54" rx="7" fill="${colour}"/><rect x="5" y="20" width="30" height="20" fill="rgba(255,255,255,.85)"/><rect x="9" y="2" width="22" height="7" rx="3" fill="#bdbdbd"/><rect x="9" y="10" width="4" height="46" rx="2" fill="rgba(255,255,255,.35)"/></svg>`;}
 function renderDrinks(){
-  const select=$('#drink');
-  if(!select)return;
-  const selected=select.value;
-  select.replaceChildren(new Option('No drink',''));
-  for(const choice of state.config.drinks||[]){
-    const option=new Option(choice.name+(choice.remaining?'':' (sold out)'),choice.name);
-    option.disabled=!choice.remaining;
-    select.add(option);
-    if(choice.remaining&&choice.name===selected)select.value=selected;
-  }
+  const step=$('#drinkStep'),box=$('#drinkChoices'),input=$('#drink');if(!step||!box)return;
+  const on=state.config.drinksEnabled!==false&&(state.config.drinks||[]).length>0;
+  step.classList.toggle('hidden',!on);renumberSteps(on);
+  if(!on){input.value='';drinkPicked=true;return;}
+  const list=state.config.drinks||[];
+  if(input.value&&!list.some(d=>d.name===input.value&&d.remaining>0)){input.value='';drinkPicked=false;}
+  box.innerHTML=list.map(d=>{const out=!d.remaining,sel=drinkPicked&&input.value===d.name;
+    return `<button type="button" class="drink-card${sel?' selected':''}${out?' sold-out':''}" data-drink="${escapeHtml(d.name)}" role="radio" aria-checked="${sel}" ${out?'disabled':''}>${canSvg(drinkColour(d.name))}<strong>${escapeHtml(d.name)}</strong><small>${out?'Sold out':d.remaining<=5?`Only ${d.remaining} left`:`${d.remaining} left`}</small></button>`;}).join('')+
+    `<button type="button" class="drink-card no-drink${drinkPicked&&!input.value?' selected':''}" data-drink="" role="radio" aria-checked="${drinkPicked&&!input.value}"><span class="no-drink-icon">🚫</span><strong>No drink, thanks</strong><small>Just the pizza</small></button>`;
 }
+function renumberSteps(drinksOn){
+  const nums=[...document.querySelectorAll('#orderForm .step-card:not(.hidden) .step-number')];nums.forEach((el,i)=>{el.textContent=i+1;});
+}
+document.addEventListener('click',e=>{const c=e.target.closest('.drink-card');if(!c||c.disabled)return;$('#drink').value=c.dataset.drink;drinkPicked=true;renderDrinks();hideMessage();updateReview();});
 function renderChoices(){
   $('#toppings').innerHTML=state.config.toppings.map(t=>`<label class="choice"><input type="checkbox" value="${escapeHtml(t)}" ${state.toppings.includes(t)?'checked':''}>${toppingPicture(t)}<span class="topping-name">${escapeHtml(t)}</span></label>`).join('')||'<p class="muted">No toppings currently available.</p>';
   state.oil='None';
@@ -110,7 +119,7 @@ function choosePizza(key){
 }
 function selection(){if(state.specialKey){const s=state.config.specials[state.specialKey];return{name:s.name,toppings:s.toppings,oil:s.oil};}return{name:'Build Your Own',toppings:state.toppings,oil:state.oil};}
 function selectedBase(){return state.specialKey?'standard':($('input[name=pizzaBase]:checked')?.value||$('#pizzaBase')?.value||'standard');}
-function updateReview(){if(!state.config)return;const name=$('#customerName').value.trim()||'Not entered',slot=AUDIT_MODE?`${state.config.audit?.breakStart||''} (audit break)`:($('#slot').value||'Not selected'),selected=document.querySelector('.pizza-card.selected');if(!selected){$('#review').innerHTML='<p>Choose your pizza to see the order summary.</p>';return;}const pizza=selection(),toppingText=pizza.toppings.length?pizza.toppings.join(', '):'Cheese only';$('#review').innerHTML=`<div class="review-row"><b>Collector</b><span>${escapeHtml(name)}</span></div><div class="review-row"><b>Pizza</b><span>${escapeHtml(pizza.name)}</span></div><div class="review-row"><b>Base sauce</b><span>${selectedBase()==='barbecue'?'Barbecue sauce':'Tomato sauce'}</span></div><div class="review-row"><b>Toppings</b><span>${escapeHtml(toppingText)}</span></div><div class="review-row"><b>Drink</b><span>${escapeHtml($('#drink')?.value||'No drink')}</span></div><div class="review-row"><b>Collection</b><span>${escapeHtml(slot)}</span></div>`;}
+function updateReview(){if(!state.config)return;const name=$('#customerName').value.trim()||'Not entered',slot=AUDIT_MODE?`${state.config.audit?.breakStart||''} (audit break)`:($('#slot').value||'Not selected'),selected=document.querySelector('.pizza-card.selected');if(!selected){$('#review').innerHTML='<p>Choose your pizza to see the order summary.</p>';return;}const pizza=selection(),toppingText=pizza.toppings.length?pizza.toppings.join(', '):'Cheese only';$('#review').innerHTML=`<div class="review-row"><b>Collector</b><span>${escapeHtml(name)}</span></div><div class="review-row"><b>Pizza</b><span>${escapeHtml(pizza.name)}</span></div><div class="review-row"><b>Base sauce</b><span>${selectedBase()==='barbecue'?'Barbecue sauce':'Tomato sauce'}</span></div><div class="review-row"><b>Toppings</b><span>${escapeHtml(toppingText)}</span></div>${$('#drinkStep')?.classList.contains('hidden')?'':`<div class="review-row"><b>Drink</b><span>${drinkPicked?escapeHtml($('#drink').value||'No drink'):'<em class="not-chosen">Not chosen yet</em>'}</span></div>`}<div class="review-row"><b>Collection</b><span>${escapeHtml(slot)}</span></div>`;}
 
 function showOrderForm({scroll=true}={}){
   success.classList.add('hidden');
@@ -119,7 +128,7 @@ function showOrderForm({scroll=true}={}){
   if(scroll)window.scrollTo({top:0,behavior:'smooth'});
 }
 function resetForm(){
-  form.reset();state.specialKey='';state.toppings=[];state.oil='None';
+  form.reset();drinkPicked=false;$('#drink').value='';state.specialKey='';state.toppings=[];state.oil='None';
   document.querySelectorAll('.pizza-card').forEach(b=>b.classList.remove('selected'));
   customBuilder.classList.add('hidden');$('#toppingCount').textContent='0';hideMessage();
   loadConfig({preserveSelection:false}).catch(error=>showMessage(error.message));
@@ -142,6 +151,7 @@ form.addEventListener('submit',async event=>{
   if(!$('#customerName').value.trim())return showMessage('Enter the collector name.');
   if(!AUDIT_MODE&&!$('#slot').value)return showMessage('Choose a collection time.');
   if(AUDIT_MODE&&!auditOpen())return showMessage('All audit team pizzas have been reserved. Please speak to the pizza team.');
+  if(!drinkPicked&&!$('#drinkStep').classList.contains('hidden')){$('#drinkStep').scrollIntoView({behavior:'smooth',block:'center'});return showMessage('Choose your drink – or tap “No drink, thanks”.');}
   if(!$('#confirm').checked)return showMessage('Please confirm that you have checked the order.');
   unlockSound();
   submitButton.disabled=true;submitButton.textContent='Reserving…';

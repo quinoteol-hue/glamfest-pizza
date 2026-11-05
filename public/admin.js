@@ -185,7 +185,7 @@ function settingsResult(text,ok){
 async function saveSettings(){
   const unavailable=[...document.querySelectorAll('#ingredientControls input:not(:checked)')].map(i=>i.value);
   try{
-    const data=await request('/api/admin/settings',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({drinks:readDrinkRows(),eventDate:$('#eventDate')?$('#eventDate').value:undefined,maxPizzas:Number($('#maxPizzas').value),serviceStart:$('#serviceStart').value,serviceEnd:$('#serviceEnd').value,pizzasPerSlot:Number($('#pizzasPerSlot').value),slotMinutes:Number($('#slotMinutes').value),auditEnabled:$('#auditEnabled').checked,auditBreakStart:$('#auditBreakStart').value,auditBreakMinutes:Number($('#auditBreakMinutes').value),auditPizzas:Number($('#auditPizzas').value),unavailableIngredients:unavailable})});
+    const data=await request('/api/admin/settings',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({drinksEnabled:$('#drinksEnabled').checked,drinks:readDrinkRows(),eventDate:$('#eventDate')?$('#eventDate').value:undefined,maxPizzas:Number($('#maxPizzas').value),serviceStart:$('#serviceStart').value,serviceEnd:$('#serviceEnd').value,pizzasPerSlot:Number($('#pizzasPerSlot').value),slotMinutes:Number($('#slotMinutes').value),auditEnabled:$('#auditEnabled').checked,auditBreakStart:$('#auditBreakStart').value,auditBreakMinutes:Number($('#auditBreakMinutes').value),auditPizzas:Number($('#auditPizzas').value),unavailableIngredients:unavailable})});
     settings=data.settings;await refresh(true);renderSettings();render();
     const booked=orders.filter(o=>o.status!=='Cancelled').length;
     settingsResult(booked>=settings.maxPizzas?`✓ Saved. Stock limit is ${settings.maxPizzas} and ${booked} pizzas are already booked, so no new orders will be taken. Existing orders are kept.`:`✓ Saved. Customers see the changes straight away (${settings.maxPizzas-booked} pizzas left to order).`,true);
@@ -272,10 +272,12 @@ function drinkRowsHtml(list){
     return `<div class="drink-row" data-i="${i}"><input class="drink-name" value="${escapeHtml(d.name)}" maxlength="30" placeholder="e.g. Coke Zero" aria-label="Drink name"><input class="drink-cans" type="number" min="0" max="500" inputmode="numeric" value="${Number(d.cans)||0}" aria-label="Number of cans"><span class="drink-unit">cans</span><span class="drink-ordered" title="Ordered so far">${ordered} ordered</span><button type="button" class="drink-remove" aria-label="Remove ${escapeHtml(d.name)}">✕</button></div>`;}).join('')||'<p class="hint">No drinks – customers will not be offered a drink.</p>';
 }
 function readDrinkRows(){return [...document.querySelectorAll('#drinkRows .drink-row')].map(r=>({name:r.querySelector('.drink-name').value.trim(),cans:Number(r.querySelector('.drink-cans').value)||0})).filter(d=>d.name);}
-function renderDrinkEditor(){const box=$('#drinkRows');if(box)box.innerHTML=drinkRowsHtml((settings&&settings.drinks)||[]);}
+function renderDrinkEditor(){const box=$('#drinkRows');if(box)box.innerHTML=drinkRowsHtml((settings&&settings.drinks)||[]);$('#drinksEnabled').checked=!(settings&&settings.drinksEnabled===false);syncDrinksFold();}
+function syncDrinksFold(){const on=$('#drinksEnabled').checked;$('#drinksBody').classList.toggle('hidden',!on);$('#drinksOff').classList.toggle('hidden',on);}
+$('#drinksEnabled').addEventListener('change',()=>{syncDrinksFold();renderAuditPlan();});
 $('#addDrink').onclick=()=>{const list=readDrinkRows();list.push({name:'',cans:20});$('#drinkRows').innerHTML=drinkRowsHtml(list.concat());const rows=document.querySelectorAll('#drinkRows .drink-row');const last=rows[rows.length-1];if(last){last.querySelector('.drink-name').value='';last.querySelector('.drink-name').focus();}renderAuditPlan();};
 $('#drinkRows').addEventListener('click',e=>{const b=e.target.closest('.drink-remove');if(!b)return;b.closest('.drink-row').remove();if(!document.querySelector('#drinkRows .drink-row'))$('#drinkRows').innerHTML=drinkRowsHtml([]);renderAuditPlan();});
 $('#drinkRows').addEventListener('input',()=>renderAuditPlan());
-function drinksChanged(){const a=JSON.stringify(readDrinkRows()),b=JSON.stringify(((settings&&settings.drinks)||[]).map(d=>({name:d.name,cans:d.cans})));return a!==b;}
+function drinksChanged(){if($('#drinksEnabled').checked!==!(settings&&settings.drinksEnabled===false))return true;const a=JSON.stringify(readDrinkRows()),b=JSON.stringify(((settings&&settings.drinks)||[]).map(d=>({name:d.name,cans:d.cans})));return a!==b;}
 function syncAuditFold(){const on=$('#auditEnabled').checked;$('#auditDetails').classList.toggle('hidden',!on);$('#auditOff').classList.toggle('hidden',on);}
 $('#auditEnabled').addEventListener('change',syncAuditFold);

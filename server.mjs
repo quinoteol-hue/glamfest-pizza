@@ -64,7 +64,8 @@ function normaliseSettings(value={}){
   const eventDate=/^\d{4}-\d{2}-\d{2}$/.test(String(value.eventDate||''))?String(value.eventDate):DEFAULT_EVENT_DATE;
   const eventFinished=value.eventFinished===true;
   const drinks=normaliseDrinks(value.drinks);
-  return{eventDate,eventFinished,drinks,maxPizzas,unavailableIngredients,serviceStart,serviceEnd,slotMinutes,pizzasPerSlot,auditEnabled,auditBreakStart:toHHMM(start),auditBreakMinutes,auditPizzas};
+  const drinksEnabled=value.drinksEnabled===undefined?true:Boolean(value.drinksEnabled);
+  return{eventDate,eventFinished,drinks,drinksEnabled,maxPizzas,unavailableIngredients,serviceStart,serviceEnd,slotMinutes,pizzasPerSlot,auditEnabled,auditBreakStart:toHHMM(start),auditBreakMinutes,auditPizzas};
 }
 // Staff slots kept free so the kitchen can cook the audit pizzas before their break starts.
 function auditPrepSlots(settings){
@@ -159,6 +160,7 @@ function normaliseOrder(body,settings){
   else{slot=cleanText(body.slot,5);if(!allSlots(settings).includes(slot))throw new Error(`Choose an available collection time between ${settings.serviceStart} and ${settings.serviceEnd}.`);}
   const phone=normalisePhone(body.phone);
   const drink=cleanText(body.drink,30);
+  if(drink&&!settings.drinksEnabled)throw new Error('Drinks are not being served at this event.');
   if(drink&&!settings.drinks.some(d=>d.name===drink))throw new Error('Choose an available drink.');
   const base=SPECIALS[specialKey]?'standard':(body.base||'standard');
   if(base!=='standard'&&base!=='barbecue')throw new Error('Choose tomato or barbecue sauce.');
@@ -193,7 +195,7 @@ const server=http.createServer(async(req,res)=>{
     const store=await readStore(),active=activeOrders(store),unavailable=new Set(store.settings.unavailableIngredients),prep=auditPrepSlots(store.settings);
     const perSlot={};for(const o of active)if(!o.audit)perSlot[o.slot]=(perSlot[o.slot]||0)+1;
     const usedSlots=[...new Set([...Object.keys(perSlot).filter(k=>perSlot[k]>=store.settings.pizzasPerSlot),...prep,...allSlots(store.settings).filter(slot=>slotHasPassed(slot,undefined,store.settings.eventDate))])];
-    return sendJson(res,200,{drinks:drinkChoices(active,store.settings),toppings:TOPPINGS.filter(i=>!unavailable.has(i)),oils:OILS.filter(i=>i==='None'||!unavailable.has(i)),specials:SPECIALS,unavailableSpecials:unavailableSpecials(store.settings),eventFinished:store.settings.eventFinished,eventDate:store.settings.eventDate,slots:allSlots(store.settings),serviceStart:store.settings.serviceStart,serviceEnd:store.settings.serviceEnd,pizzasPerSlot:store.settings.pizzasPerSlot,slotMinutes:store.settings.slotMinutes,usedSlots,maxPizzas:store.settings.maxPizzas,currentCount:active.length,remaining:Math.max(0,store.settings.maxPizzas-active.length),audit:auditInfo(store.settings,active),capacity:capacityInfo(store.settings)});
+    return sendJson(res,200,{drinksEnabled:store.settings.drinksEnabled,drinks:store.settings.drinksEnabled?drinkChoices(active,store.settings):[],toppings:TOPPINGS.filter(i=>!unavailable.has(i)),oils:OILS.filter(i=>i==='None'||!unavailable.has(i)),specials:SPECIALS,unavailableSpecials:unavailableSpecials(store.settings),eventFinished:store.settings.eventFinished,eventDate:store.settings.eventDate,slots:allSlots(store.settings),serviceStart:store.settings.serviceStart,serviceEnd:store.settings.serviceEnd,pizzasPerSlot:store.settings.pizzasPerSlot,slotMinutes:store.settings.slotMinutes,usedSlots,maxPizzas:store.settings.maxPizzas,currentCount:active.length,remaining:Math.max(0,store.settings.maxPizzas-active.length),audit:auditInfo(store.settings,active),capacity:capacityInfo(store.settings)});
   }
   if(req.method==='GET'&&pathname==='/api/qr'){const configured=cleanText(process.env.PUBLIC_URL,300),origin=configured||`${req.headers['x-forwarded-proto']||'http'}://${req.headers.host}`,qr=u=>`https://api.qrserver.com/v1/create-qr-code/?size=900x900&ecc=H&data=${encodeURIComponent(u)}`,base=origin.replace(/\/+$/,''),auditUrl=`${base}/audit`;return sendJson(res,200,{url:origin,imageUrl:qr(origin),auditUrl,auditImageUrl:qr(auditUrl)});}
   if(req.method==='POST'&&pathname==='/api/orders'){
